@@ -10,6 +10,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- OneSignal Web Push SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "c3645588-b84c-4969-bd4c-9218abdbc448",
+          safari_web_id: "web.onesignal.auto.087eca46-faed-450d-af5b-90e7f525c88c",
+          notifyButton: {
+            enable: true,
+          },
+        });
+        
+        // Optionnel : Lier le livreur à son identifiant unique pour l'envoi de push ciblé
+        const userData = JSON.parse(localStorage.getItem('alc_session'));
+        if (userData && userData.userId) {
+            OneSignal.login(userData.userId);
+        }
+      });
+    </script>
+    
     <style>
         body { background: #f8fafc; font-family: 'Inter', sans-serif; }
         
@@ -82,9 +104,29 @@
             font-weight: 800; color: var(--slate-600); margin-top: 0.5rem; width: 100%; justify-content: center;
         }
         .colis-card.done .deliver-btn { background: #22c55e; border-color: #22c55e; color: white; }
+
+        /* TOAST NOTIFICATION */
+        #toast-container {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: var(--brand-navy); color: white; padding: 1rem 1.5rem;
+            border-radius: 16px; box-shadow: 0 10px 25px rgba(30,58,138,0.4);
+            display: flex; align-items: center; gap: 1rem; z-index: 4000;
+            transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-weight: 700; font-size: 0.85rem; width: 90%; max-width: 400px;
+        }
+        #toast-container.show { top: 20px; }
     </style>
 </head>
 <body>
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-container">
+        <i data-lucide="bell-ring" style="width: 24px; color: #38bdf8;"></i>
+        <div style="flex:1;">
+            <div style="font-size: 0.65rem; opacity:0.8; text-transform:uppercase;">Nouveau message</div>
+            <div id="toast-msg">Mise à jour reçue</div>
+        </div>
+    </div>
+
     <main style="padding-bottom: 6rem;">
         <!-- VUE COLIS -->
         <div id="view-colis">
@@ -187,7 +229,37 @@
                 document.getElementById('dashPrincipalZone').textContent = zone;
             }
 
-            loadMyColis(userId);
+            await loadMyColis(userId);
+            listenToUpdates(userId);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-container');
+            document.getElementById('toast-msg').textContent = message;
+            toast.classList.add('show');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // Double vibration
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 5000);
+        }
+
+        function listenToUpdates(livreurId) {
+            supabaseClient
+                .channel('livreur_updates')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'sorties',
+                    filter: `livreur_id=eq.${livreurId}` 
+                }, payload => {
+                    console.log('Changement détecté !', payload);
+                    if (payload.new && payload.new.statut === 'En Cours') {
+                        showToast("Ta tournée a été modifiée par le gérant (Ajout/Retour) !");
+                        loadMyColis(livreurId); // Rechargement automatique invisible
+                    }
+                })
+                .subscribe();
         }
 
         async function loadMyColis(livreurId) {
