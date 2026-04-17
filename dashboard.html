@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dashboard | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <main>
+        <header class="page-header">
+            <div>
+                <h2 style="font-size: 1.25rem; font-weight: 800;">Tableau de Bord</h2>
+                <select id="periodFilter" style="font-size: 0.7rem; color: var(--brand-blue); font-weight: 700; background: transparent; border: none; outline: none; margin-top: 0.2rem; cursor: pointer;">
+                    <option value="month">Ce Mois-ci</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Cette Semaine</option>
+                    <option value="all">Tout le temps</option>
+                </select>
+            </div>
+            <div id="refreshBtn" style="cursor: pointer; padding: 0.5rem; background: var(--slate-100); border-radius: 8px;"><i data-lucide="refresh-cw" style="width: 18px; color: var(--brand-navy);"></i></div>
+        </header>
+
+        <!-- KPI PRINCIPAUX -->
+        <div class="kpi-grid" style="margin-top: 1rem;">
+            <div class="kpi-card" style="grid-column: span 2; background: var(--brand-navy); color: white;">
+                <p class="label" id="revenueLabel" style="color: rgba(255,255,255,0.7);">Chiffre d'Affaire (Mois)</p>
+                <h1 id="statMonthlyRevenue" style="font-size: 2rem; color: white;">0 F</h1>
+            </div>
+            <div class="kpi-card">
+                <p class="label">À Encaisser</p>
+                <p class="value" id="statPending" style="color: var(--brand-blue);">0 F</p>
+            </div>
+            <div class="kpi-card">
+                <p class="label">Livreurs Actifs</p>
+                <p class="value" id="statActiveLivreurs">0</p>
+            </div>
+        </div>
+
+        <!-- PERFORMANCE -->
+        <div class="admin-card">
+            <h3 style="font-size: 0.85rem; font-weight: 800; margin-bottom: 1rem;">Objectif Livraison</h3>
+            <div style="height: 12px; background: var(--slate-100); border-radius: 6px; overflow: hidden; margin-bottom: 0.5rem;">
+                <div id="statProgressBar" style="width: 0%; height: 100%; background: var(--success); transition: width 1s;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 800; color: var(--slate-600);">
+                <span id="statSuccessRate">0% de réussite</span>
+                <span id="statTotalColis">0 colis traités</span>
+            </div>
+        </div>
+
+        <!-- DERNIÈRES ACTIVITÉS -->
+        <h3 style="font-size: 0.85rem; font-weight: 800; margin: 1.5rem 0 1rem; color: var(--brand-navy);">Activités Récentes</h3>
+        <div id="recentActivityList">
+            <div style="text-align: center; padding: 2rem;"><i data-lucide="loader-2" style="width: 24px; animation: spin 1s infinite;"></i></div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="dispatch.html" class="nav-item"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item active"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </nav>
+
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

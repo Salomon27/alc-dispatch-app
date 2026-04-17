@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dispatch | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .fixed-top-area { background: var(--white); padding: 0.75rem 1rem; border-bottom: 2px solid var(--slate-100); z-index: 100; }
+        .compact-info { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .capture-card { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 12px; padding: 0.75rem; }
+        .camera-trigger { width: 100%; height: 90px; border: 2px dashed var(--slate-300); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; background: white; }
+        .camera-trigger img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+        .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-top: 0.5rem; }
+        .q-btn { background: white; border: 1px solid var(--slate-200); padding: 0.4rem 0; border-radius: 6px; font-size: 0.65rem; font-weight: 800; text-align: center; }
+
+        /* GRILLE DE COLIS */
+        .scrollable-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #f8fafc;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+        .grid-item {
+            position: relative;
+            aspect-ratio: 1;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--slate-200);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .grid-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        .grid-item .badge {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background: rgba(15, 23, 42, 0.8);
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 2px;
+            text-align: center;
+            border-radius: 4px;
+            backdrop-filter: blur(2px);
+        }
+        .grid-item .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--danger);
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* LIGHTBOX VISIONNEUSE */
+        #lightbox {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            padding: 1rem;
+        }
+        #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
+        #lightbox .close { position: absolute; top: 20px; right: 20px; color: white; cursor: pointer; }
+
+        .floating-footer { background: var(--brand-navy); color: white; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="fixed-top-area">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1rem; font-weight: 900;">Dispatch</h2>
+            <div id="logoutBtn"><i data-lucide="log-out" style="width: 18px; color: var(--danger);"></i></div>
+        </div>
+        <div class="compact-info">
+            <select id="livreurSelect" style="font-size: 0.8rem; padding: 0.4rem;"><option value="">Livreur...</option></select>
+            <input type="text" id="zoneInput" placeholder="Zone..." style="font-size: 0.8rem; padding: 0.4rem;">
+        </div>
+        <div class="capture-card">
+            <div style="display: grid; grid-template-columns: 80px 1fr; gap: 0.75rem;">
+                <div class="camera-trigger" onclick="document.getElementById('itemPhotoInput').click()">
+                    <img id="itemPhotoPreview" class="hidden">
+                    <i data-lucide="camera" id="camIcon" style="width: 24px; color: var(--brand-navy);"></i>
+                </div>
+                <div>
+                    <input type="number" id="itemMontant" placeholder="Montant F" style="height: 38px; font-weight: 800;">
+                    <div class="quick-amounts">
+                        <div class="q-btn" onclick="addVal(500)">+500</div>
+                        <div class="q-btn" onclick="addVal(1000)">+1k</div>
+                        <div class="q-btn" onclick="addVal(2000)">+2k</div>
+                        <div class="q-btn" onclick="addVal(5000)">+5k</div>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="itemPhotoInput" accept="image/*" capture="environment" class="hidden">
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                <input type="text" id="itemDesc" placeholder="Note (optionnel)..." style="flex: 1; height: 38px; font-size: 0.8rem;">
+                <button type="button" id="addItemBtn" class="btn" style="width: 100px; height: 38px; background: var(--brand-navy); color: white; margin: 0; font-size: 0.7rem;">AJOUTER</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="scrollable-list">
+        <div id="itemList" class="grid-container">
+            <!-- Grille de colis -->
+        </div>
+        <div id="emptyMsg" style="text-align: center; color: var(--slate-400); margin-top: 2rem;">
+            <i data-lucide="package" style="width: 40px; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+            <p style="font-size: 0.8rem; font-weight: 700;">Aucun colis ajouté</p>
+        </div>
+    </div>
+
+    <div id="detailSummary" class="hidden">
+        <form id="dispatchForm" class="floating-footer">
+            <div>
+                <span id="summaryCount" style="font-size: 0.6rem; font-weight: 800; opacity: 0.8;">0 COLIS</span>
+                <div id="summaryTotal" style="font-size: 1.25rem; font-weight: 900;">0 F</div>
+            </div>
+            <button type="submit" id="submitBtn" class="btn" style="width: auto; padding: 0 1.5rem; background: var(--success); color: white; height: 44px; margin: 0;">VALIDER TOUT</button>
+        </form>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="dispatch.html" class="nav-item active"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </nav>
+
+    <!-- VISIONNEUSE -->
+    <div id="lightbox" onclick="this.style.display='none'">
+        <i data-lucide="x" class="close"></i>
+        <img id="lightboxImg">
+    </div>
+
+    <div id="successOverlay" class="overlay">
+        <div class="overlay-card"><div class="success-icon"><i data-lucide="check" style="width: 32px;"></i></div><h3 style="font-weight: 900;">Bordereau Enregistré</h3><p style="font-size: 0.8rem; color: var(--slate-600);">Chargement terminé.</p></div>
+    </div>
+
+    <script type="module" src="js/dispatch.js"></script>
+    <script>
+        function addVal(v) {
+            const input = document.getElementById('itemMontant');
+            input.value = (parseInt(input.value) || 0) + v;
+            input.focus();
+        }
+    </script>
+</body>
+</html>

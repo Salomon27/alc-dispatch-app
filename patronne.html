@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Administration Patronne | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#020617">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #f8fafc; }
+        
+        /* THEME BOSS ADMINISTRATIF */
+        .boss-hero {
+            background: white;
+            padding: 2rem 1.5rem 1.5rem 1.5rem;
+            border-bottom: 1px solid var(--slate-200);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+            margin-bottom: 1rem;
+        }
+        
+        .glass-panel {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .floating-cards {
+            display: flex;
+            gap: 1rem;
+            padding: 0 1.5rem;
+        }
+        .float-card {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid var(--slate-200);
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--slate-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 1.5rem 1.5rem 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .podium-item {
+            background: white;
+            margin: 0.5rem 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--slate-200);
+            transition: transform 0.2s;
+        }
+        .podium-item:active { transform: scale(0.98); background: var(--slate-50); }
+        .podium-rank {
+            font-size: 1rem;
+            font-weight: 900;
+            width: 30px;
+            color: var(--slate-400);
+        }
+        .rank-1 { color: var(--brand-navy); }
+        .rank-2 { color: var(--slate-600); }
+        .rank-3 { color: var(--slate-500); }
+
+        .progress-bar-bg {
+            background: var(--slate-100);
+            height: 4px;
+            border-radius: 4px;
+            width: 100%;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--slate-400);
+            border-radius: 4px;
+        }
+        
+        select.boss-filter {
+            background: white;
+            color: var(--brand-navy);
+            border: 1px solid var(--slate-200);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            outline: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main style="padding: 0; padding-bottom: 6rem;">
+        <!-- EN-TETE ADMINISTRATIF -->
+        <div class="boss-hero">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1.5rem;">
+                <div>
+                    <h2 style="font-size: 1.25rem; font-weight: 900; color: var(--brand-navy); margin: 0;">Tableau de Bord</h2>
+                    <p style="font-size: 0.7rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase; margin-top: 0.2rem;">Contrôle de Gestion</p>
+                </div>
+                <div id="logoutBtn" style="background: var(--slate-50); border: 1px solid var(--slate-200); padding: 0.5rem; border-radius: 8px; cursor: pointer;">
+                    <i data-lucide="log-out" style="width: 16px; color: var(--slate-600);"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <p style="font-size: 0.7rem; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.05em;" id="revenueLabel">Chiffre d'Affaires</p>
+                    <select id="periodFilter" class="boss-filter">
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">Semaine</option>
+                        <option value="month" selected>Ce Mois</option>
+                        <option value="all">Tout le temps</option>
+                    </select>
+                </div>
+                <h1 id="globalTotal" style="font-size: 2.5rem; font-weight: 900; color: var(--brand-navy); margin: 0; letter-spacing: -0.02em;">0 F</h1>
+                <p style="font-size: 0.7rem; color: var(--slate-500); margin-top: 0.5rem; font-weight: 600;"><span id="colisTotalCount" style="color: var(--brand-navy); font-weight: 800;">0</span> livraisons effectuées</p>
+            </div>
+        </div>
+
+        <!-- FLOATING KPI CARDS -->
+        <div class="floating-cards">
+            <div class="float-card">
+                <div style="background: #fef2f2; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 0.5rem;">
+                    <i data-lucide="clock" style="width: 16px; color: var(--danger);"></i>
+                </div>
+                <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-500); text-transform: uppercase;">Argent Dehors</p>
+                <h3 id="moneyOutside" style="font-size: 1.1rem; font-weight: 900; color: var(--brand-navy); margin-top: 0.2rem;">0 F</h3>
+                <p style="font-size: 0.6rem; color: var(--danger); font-weight: 700; margin-top: 0.2rem;"><span id="activeSortiesCount">0</span> tournées actives</p>
+            </div>
+            
+            <a href="rapports.html" class="float-card" style="text-decoration: none;">
+                <div style="background: #f0fdf4; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 0.5rem;">
+                    <i data-lucide="shield-check" style="width: 16px; color: var(--success);"></i>
+                </div>
+                <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-500); text-transform: uppercase;">Audits</p>
+                <h3 style="font-size: 1.1rem; font-weight: 900; color: var(--brand-navy); margin-top: 0.2rem;">Archives</h3>
+                <p style="font-size: 0.6rem; color: var(--success); font-weight: 700; margin-top: 0.2rem;">Voir les contrôles</p>
+            </a>
+        </div>
+
+        <!-- VISION GLOBALE COLIS -->
+        <div style="padding: 1.5rem 1.5rem 0.5rem 1.5rem;">
+            <a href="colis.html" style="display: flex; align-items: center; justify-content: space-between; background: white; border: 1px solid var(--slate-200); padding: 1.25rem; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                        <i data-lucide="folder-open" style="width: 18px; color: var(--brand-navy);"></i>
+                        <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--brand-navy); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Registre des Colis</h4>
+                    </div>
+                    <p style="font-size: 0.7rem; font-weight: 600; color: var(--slate-500); margin: 0;">Base de données détaillée</p>
+                </div>
+                <i data-lucide="chevron-right" style="width: 20px; color: var(--slate-400);"></i>
+            </a>
+        </div>
+
+        <!-- TOURNÉES EN COURS (ACTIVES) -->
+        <div class="section-title" id="activeTitleSection" style="display: none;">
+            <span>Opérations en cours</span>
+            <i data-lucide="truck" style="width: 16px;"></i>
+        </div>
+        <div id="activeRunsList"></div>
+
+        <!-- TOP LIVREURS (PODIUM) -->
+        <div class="section-title">
+            <span>Meilleurs Éléments</span>
+            <i data-lucide="trending-up" style="width: 16px;"></i>
+        </div>
+        <div id="topLivreursList">
+             <div style="text-align: center; padding: 2rem;"><i data-lucide="loader-2" style="width: 24px; color: var(--brand-blue); animation: spin 1s infinite;"></i></div>
+        </div>
+
+    </main>
+
+    <!-- Navigation Patronne -->
+    <nav class="bottom-nav">
+        <a href="patronne.html" class="nav-item active"><i data-lucide="crown"></i><span>Boss</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Audits</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Équipe</span></a>
+    </nav>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, formatFCFA } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            checkAuth('patronne');
+            lucide.createIcons();
+            
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                import('./js/utils.js').then(m => m.logout());
+            });
+
+            document.getElementById('periodFilter').addEventListener('change', loadBossStats);
+            
+            // Lancement asynchrone des analyses
+            loadBossStats();
+            loadMoneyOutside();
+        }
+
+        function getPeriodDates(period) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            switch(period) {
+                case 'today': return { start: today.toISOString(), label: "CA (Aujourd'hui)" };
+                case 'week':
+                    const startOfWeek = new Date(today);
+                    startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+                    return { start: startOfWeek.toISOString(), label: "CA (Semaine)" };
+                case 'month':
+                    return { start: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), label: "CA (Ce Mois)" };
+                case 'all':
+                    return { start: new Date(2000, 0, 1).toISOString(), label: "CA (Global)" };
+                default:
+                    return { start: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), label: "CA (Mois)" };
+            }
+        }
+
+        async function loadBossStats() {
+            const period = document.getElementById('periodFilter').value || 'month';
+            const { start, label } = getPeriodDates(period);
+            document.getElementById('revenueLabel').textContent = label;
+
+            // Recettes clôturées de la période
+            const { data: sortiesData } = await supabaseClient
+                .from('sorties')
+                .select('*, livreur:livreurs(nom)')
+                .eq('statut', 'Clôturé')
+                .gte('created_at', start);
+
+            let totalMontant = 0;
+            let totalColis = 0;
+            const perfLivreurs = {};
+
+            if (sortiesData) {
+                sortiesData.forEach(s => {
+                    const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const ajoutsNb = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb), 0);
+                    
+                    const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+
+                    const net = (Number(s.montant_total) + ajouts - retours);
+                    totalMontant += net;
+                    
+                    const count = Number(s.nb_colis) + ajoutsNb;
+                    totalColis += count;
+
+                    const nom = s.livreur.nom;
+                    if (!perfLivreurs[nom]) perfLivreurs[nom] = { montant: 0, colis: 0 };
+                    perfLivreurs[nom].montant += net;
+                    perfLivreurs[nom].colis += count;
+                });
+            }
+
+            document.getElementById('globalTotal').textContent = formatFCFA(totalMontant);
+            document.getElementById('colisTotalCount').textContent = totalColis;
+
+            // Rendre Podium Livreurs
+            const list = document.getElementById('topLivreursList');
+            list.innerHTML = '';
+            
+            // Tri par montant
+            const sortedLivreurs = Object.entries(perfLivreurs).sort((a,b) => b[1].montant - a[1].montant);
+            
+            if(sortedLivreurs.length === 0) {
+                list.innerHTML = `<div style="text-align:center; color:var(--slate-400); font-size:0.8rem; padding: 1rem;">Aucune donnée sur cette période.</div>`;
+                return;
+            }
+
+            const highestAmount = sortedLivreurs[0][1].montant || 1;
+
+            sortedLivreurs.slice(0, 7).forEach(([nom, stats], index) => {
+                const rankClass = index === 0 ? 'rank-1' : (index === 1 ? 'rank-2' : (index === 2 ? 'rank-3' : ''));
+                const percent = Math.max(5, (stats.montant / highestAmount) * 100);
+
+                const div = document.createElement('div');
+                div.className = 'podium-item';
+                div.onclick = () => window.location.href = 'livreurs.html';
+                
+                div.innerHTML = `
+                    <div class="podium-rank ${rankClass}">${index + 1}</div>
+                    <div style="flex: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <span style="font-weight: 800; font-size: 0.9rem; color: var(--brand-navy);">${nom}</span>
+                            <span style="font-weight: 900; font-size: 0.9rem;">${formatFCFA(stats.montant)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 0.2rem;">
+                            <span style="font-size: 0.65rem; color: var(--slate-400); font-weight: 700;">${stats.colis} Colis livrés</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-fill" style="width: ${percent}%;"></div>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        async function loadMoneyOutside() {
+            // Tournées actuelles EN COURS (peu importe la date)
+            const { data: activeRuns } = await supabaseClient
+                .from('sorties')
+                .select('id, nb_colis, montant_total, completions, livreur:livreurs(nom)')
+                .eq('statut', 'En Cours');
+            
+            let moneyOutside = 0;
+            let activeCount = 0;
+
+            const activeList = document.getElementById('activeRunsList');
+            activeList.innerHTML = '';
+
+            if (activeRuns && activeRuns.length > 0) {
+                activeCount = activeRuns.length;
+                document.getElementById('activeTitleSection').style.display = 'flex';
+                
+                activeRuns.forEach(s => {
+                    const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const ajoutsNb = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb), 0);
+                    
+                    const currentMontant = Number(s.montant_total) + ajouts;
+                    const currentNb = Number(s.nb_colis) + ajoutsNb;
+                    const nom = s.livreur?.nom || 'Inconnu';
+
+                    moneyOutside += currentMontant; // Argent potentiel dehors !
+
+                    // Carte cliquable
+                    const a = document.createElement('a');
+                    a.href = `point.html?id=${s.id}`;
+                    a.style.textDecoration = 'none';
+                    a.className = 'podium-item'; 
+                    a.style.margin = '0.5rem 1.5rem';
+                    a.innerHTML = `
+                        <div style="background: #eff6ff; padding: 0.5rem; border-radius: 12px; margin-right: 1rem;">
+                            <i data-lucide="package" style="color: var(--brand-blue); width: 20px;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4 style="font-size: 0.85rem; font-weight: 800; color: var(--brand-navy); margin: 0;">${nom}</h4>
+                            <p style="font-size: 0.65rem; color: var(--slate-500); margin-top: 0.2rem;">${currentNb} colis en livraison</p>
+                        </div>
+                        <div style="text-align: right; display:flex; align-items:center; gap:0.5rem;">
+                            <h4 style="font-size: 0.95rem; font-weight: 900; color: var(--brand-navy); margin: 0;">${formatFCFA(currentMontant)}</h4>
+                            <i data-lucide="chevron-right" style="width: 14px; color: var(--slate-300);"></i>
+                        </div>
+                    `;
+                    activeList.appendChild(a);
+                });
+            } else {
+                document.getElementById('activeTitleSection').style.display = 'none';
+            }
+
+            document.getElementById('moneyOutside').textContent = formatFCFA(moneyOutside);
+            document.getElementById('activeSortiesCount').textContent = activeCount;
+            lucide.createIcons();
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Access ALC | Abidjan Logistique Connect</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        /*
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js');
+            });
+        }
+        */
+    </script>
+</head>
+<body>
+    <div class="bg-decor">
+        <div></div>
+        <div></div>
+    </div>
+
+    <main class="login-container animate-in">
+        <div class="logo-area">
+            <i data-lucide="key-round"></i>
+        </div>
+
+        <h1>Access ALC</h1>
+        <p class="sub">Entrez votre code confidentiel pour vous connecter à l'espace.</p>
+
+        <div class="pin-container" id="pinDisplay">
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <input type="tel" class="pin-input" id="pinInput" maxlength="4" autofocus inputmode="numeric">
+        </div>
+
+        <div id="statusMessage" style="min-height: 24px;">
+            <!-- Loading or error messages -->
+        </div>
+    </main>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, setSession, redirectByRole } from './js/utils.js';
+        
+        // Anti-flicker: On vérifie l'auth AVANT d'afficher quoi que ce soit
+        checkAuth();
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const pinInput = document.getElementById('pinInput');
+        const pinDisplaySlots = document.querySelectorAll('.pin-dot');
+        const pinDisplay = document.getElementById('pinDisplay');
+        const statusMessage = document.getElementById('statusMessage');
+
+        lucide.createIcons();
+
+        pinInput.addEventListener('input', (e) => {
+            const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+            e.target.value = val;
+            
+            // Update display
+            pinDisplaySlots.forEach((slot, i) => {
+                if (val[i]) {
+                    slot.classList.add('filled');
+                    slot.innerText = '•';
+                } else {
+                    slot.classList.remove('filled');
+                    slot.innerText = '';
+                }
+                
+                // Highlight current active slot
+                if (i === val.length) {
+                    slot.classList.add('active');
+                } else {
+                    slot.classList.remove('active');
+                }
+            });
+
+            if (val.length === 4) {
+                handleLogin(val);
+            }
+        });
+
+        async function handleLogin(pin) {
+            statusMessage.innerHTML = '<p style="color: var(--brand-blue); font-size: 0.8rem; font-weight: 600;"><i data-lucide="loader-2" class="spin" style="width: 14px; vertical-align: middle; margin-right: 4px;"></i>Vérification...</p>';
+            lucide.createIcons();
+            pinInput.disabled = true;
+
+            try {
+                // 1. On cherche d'abord dans les profils (Gérant/Patronne)
+                const { data: profile, error: pError } = await supabaseClient
+                    .from('profiles')
+                    .select('id, nom, role')
+                    .eq('code_pin', pin)
+                    .maybeSingle();
+
+                if (profile) {
+                    setSession(profile);
+                    redirectByRole(profile.role);
+                    return;
+                }
+
+                // 2. Si pas trouvé, on cherche dans les livreurs
+                const { data: livreur, error: lError } = await supabaseClient
+                    .from('livreurs')
+                    .select('id, nom')
+                    .eq('code_pin', pin)
+                    .maybeSingle();
+
+                if (livreur) {
+                    setSession({
+                        id: livreur.id,
+                        nom: livreur.nom,
+                        role: 'livreur'
+                    });
+                    redirectByRole('livreur');
+                    return;
+                }
+
+                throw new Error("Code incorrect");
+
+            } catch (err) {
+                pinDisplay.classList.add('shake');
+                setTimeout(() => pinDisplay.classList.remove('shake'), 400);
+
+                statusMessage.innerHTML = '<p style="color: var(--danger); font-size: 0.8rem; font-weight: 600;">Code incorrect</p>';
+                pinInput.disabled = false;
+                pinInput.value = '';
+                pinDisplaySlots.forEach(slot => {
+                    slot.classList.remove('filled', 'active');
+                    slot.classList.add('error');
+                    slot.innerText = '';
+                    setTimeout(() => slot.classList.remove('error'), 400);
+                });
+                pinInput.focus();
+                if (navigator.vibrate) navigator.vibrate(200);
+            }
+        }
+
+        // Keep focus on input
+        document.body.addEventListener('click', () => pinInput.focus());
+        // Initial highlight
+        pinDisplaySlots[0].classList.add('active');
+    </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bilan Journalier | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .day-header {
+            background: var(--brand-navy);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .proof-gallery {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            margin-top: 0.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .proof-gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+    </style>
+</head>
+<body>
+    <main>
+        <header class="page-header" style="margin-bottom: 1rem;">
+            <div>
+                <button onclick="history.back()" style="background: none; border: none; color: var(--slate-600); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <i data-lucide="arrow-left" style="width: 14px;"></i> RETOUR BOSS
+                </button>
+                <h2 id="dateTitle" style="font-size: 1.5rem; font-weight: 900; color: var(--brand-navy);">--</h2>
+            </div>
+            <div id="printBtn" style="background: var(--slate-100); padding: 0.5rem; border-radius: 50%;"><i data-lucide="printer" style="width: 20px;"></i></div>
+        </header>
+
+        <div class="day-header">
+            <p style="font-size: 0.75rem; font-weight: 700; opacity: 0.8; text-transform: uppercase;">Recette Totale du Jour</p>
+            <h1 id="totalDayRevenue" style="margin: 0.5rem 0; font-size: 2.5rem;">0 F</h1>
+            <p id="totalDayStats" style="font-size: 0.8rem; font-weight: 700; opacity: 0.9;"></p>
+        </div>
+
+        <h3 style="font-size: 0.9rem; font-weight: 900; color: var(--slate-700); margin-bottom: 1rem; text-transform: uppercase;">Détails par Livreur</h3>
+        <div id="livreurDayList">
+            <!-- Liste détaillée avec preuves -->
+             <div style="text-align: center; padding: 2rem;"><i data-lucide="loader-2" style="width: 24px; animation: spin 1s infinite;"></i></div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { formatFCFA, checkAuth } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            checkAuth('patronne');
+            lucide.createIcons();
+            const date = new URLSearchParams(window.location.search).get('date');
+            if (!date) return;
+
+            document.getElementById('dateTitle').textContent = new Date(date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            loadDayDetails(date);
+        }
+
+        async function loadDayDetails(date) {
+            const startOfDay = `${date}T00:00:00Z`;
+            const endOfDay = `${date}T23:59:59Z`;
+
+            const { data: sorties } = await supabaseClient
+                .from('sorties')
+                .select('*, livreur:livreurs(nom)')
+                .gte('created_at', startOfDay)
+                .lte('created_at', endOfDay);
+
+            const list = document.getElementById('livreurDayList');
+            list.innerHTML = '';
+
+            if (sorties && sorties.length > 0) {
+                let dayTotal = 0;
+                let dayColis = 0;
+
+                sorties.forEach(s => {
+                    const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const net = (Number(s.montant_total) + ajouts - retours);
+                    dayTotal += net;
+                    dayColis += s.nb_colis;
+
+                    const card = document.createElement('div');
+                    card.className = 'admin-card';
+                    card.style.marginBottom = '1.5rem';
+                    
+                    // On prépare la galerie de preuves
+                    let galleryHtml = `<div class="proof-gallery"><img src="${s.photo_url}">`;
+                    if (s.completions) {
+                        s.completions.forEach(c => { if(c.photo_url) galleryHtml += `<img src="${c.photo_url}">`; });
+                    }
+                    galleryHtml += '</div>';
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                            <div>
+                                <h4 style="font-weight: 800; color: var(--brand-navy);">${s.livreur.nom}</h4>
+                                <p style="font-size: 0.7rem; color: var(--slate-500); font-weight: 700;">📍 ${s.zone_libre} • ${s.statut}</p>
+                            </div>
+                            <h5 style="font-weight: 900; color: var(--brand-navy);">${formatFCFA(net)}</h5>
+                        </div>
+                        <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400); text-transform: uppercase;">Preuves Photos (${(s.completions?.length || 0) + 1})</p>
+                        ${galleryHtml}
+                        <a href="dossier-detail.html?id=${s.id}" style="display: block; text-align: right; margin-top: 0.75rem; font-size: 0.7rem; color: var(--brand-blue); font-weight: 800; text-decoration: none;">
+                            VOIR LE DOSSIER COMPLET →
+                        </a>
+                    `;
+                    list.appendChild(card);
+                });
+
+                document.getElementById('totalDayRevenue').textContent = formatFCFA(dayTotal);
+                document.getElementById('totalDayStats').textContent = `${sorties.length} Livreurs • ${dayColis} Colis au départ`;
+            } else {
+                list.innerHTML = '<p style="text-align: center; color: var(--slate-400);">Aucune donnée pour ce jour.</p>';
+            }
+            lucide.createIcons();
+        }
+
+        init();
+    </script>
+</body>
+</html>

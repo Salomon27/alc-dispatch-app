@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Archives | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .filter-chip {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            background: var(--slate-100);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--slate-600);
+            cursor: pointer;
+            border: 1px solid var(--slate-200);
+            white-space: nowrap;
+        }
+        .filter-chip.active {
+            background: var(--brand-navy);
+            color: white;
+            border-color: var(--brand-navy);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header class="page-header" style="margin-bottom: 1rem;">
+            <div>
+                <h2 style="font-size: 1.25rem; font-weight: 800;">Archives</h2>
+                <p style="font-size: 0.7rem; color: var(--slate-700); font-weight: 700;">Historique des bordereaux</p>
+            </div>
+            <div id="statsToggle" style="background: var(--slate-100); padding: 0.5rem; border-radius: 8px;">
+                <i data-lucide="filter" style="width: 18px; color: var(--brand-navy);"></i>
+            </div>
+        </header>
+
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <div style="flex: 1; position: relative;">
+                <i data-lucide="search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 16px; color: var(--slate-400);"></i>
+                <input type="text" id="searchInput" placeholder="Chercher livreur, zone..." style="padding-left: 2.75rem; background: var(--white); width: 100%;">
+            </div>
+            <input type="date" id="dateFilter" style="background: var(--white); border-radius: 12px; border: 1px solid var(--slate-200); padding: 0 0.5rem; font-size: 0.75rem; font-weight: 700; color: var(--brand-navy); outline: none;">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--slate-100);">
+            <div class="filter-chip active" data-filter="all">Tout</div>
+            <div class="filter-chip" data-filter="En Cours">En Cours</div>
+            <div class="filter-chip" data-filter="Clôturé">Clôturés</div>
+        </div>
+
+        <div id="summaryBar" class="admin-card" style="padding: 0.75rem 1rem; background: var(--brand-navy); color: white; display: flex; justify-content: space-between; align-items: center; display: none;">
+            <span style="font-size: 0.7rem; font-weight: 700; opacity: 0.8;">CUMUL PÉRIODE</span>
+            <span id="periodTotal" style="font-weight: 900; font-size: 1.1rem;">0 F</span>
+        </div>
+
+        <div id="rapportList">
+            <!-- Items load here -->
+            <div style="text-align: center; padding: 4rem 2rem;">
+                <i data-lucide="loader-2" style="width: 24px; animation: spin 1s infinite; color: var(--brand-blue);"></i>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="dispatch.html" class="nav-item"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item active"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </nav>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, formatFCFA, getSession } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let allData = [];
+        let currentFilter = 'all';
+
+        async function init() {
+            checkAuth();
+            lucide.createIcons();
+            await loadRapports(); // Attendre le chargement avant de filtrer
+            
+            // Check for search in URL
+            const urlSearch = new URLSearchParams(window.location.search).get('search');
+            if (urlSearch) {
+                document.getElementById('searchInput').value = urlSearch;
+                applyFiltersAndSearch();
+            }
+            
+            setupFilters();
+        }
+
+        async function loadRapports() {
+            const { userId, role } = getSession();
+            
+            let query = supabaseClient
+                .from('sorties')
+                .select('*, livreur:livreurs(nom)')
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            // Filtrage : Le gérant ne voit que ses dossiers, la patronne voit TOUT
+            if (role !== 'patronne') {
+                query = query.eq('gerant_id', userId);
+            }
+
+            const { data, error } = await query;
+
+            if (data) {
+                allData = data;
+                applyFiltersAndSearch();
+            } else {
+                document.getElementById('rapportList').innerHTML = '<p style="text-align: center; padding: 2rem;">Aucun bordereau.</p>';
+            }
+        }
+
+        function setupFilters() {
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    currentFilter = chip.dataset.filter;
+                    applyFiltersAndSearch();
+                });
+            });
+
+            document.getElementById('searchInput').addEventListener('input', applyFiltersAndSearch);
+            document.getElementById('dateFilter').addEventListener('change', applyFiltersAndSearch);
+        }
+
+        function applyFiltersAndSearch() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const d = document.getElementById('dateFilter').value; // 'YYYY-MM-DD'
+            
+            const filtered = allData.filter(s => {
+                const matchesFilter = currentFilter === 'all' || s.statut === currentFilter;
+                const matchesSearch = s.livreur.nom.toLowerCase().includes(q) || 
+                                     s.zone_libre.toLowerCase().includes(q);
+                
+                let matchesDate = true;
+                if (d) {
+                    const sortieDate = s.created_at.split('T')[0];
+                    matchesDate = (sortieDate === d);
+                }
+
+                return matchesFilter && matchesSearch && matchesDate;
+            });
+
+            renderList(filtered);
+            updateSummary(filtered);
+        }
+
+        function renderList(data) {
+            const list = document.getElementById('rapportList');
+            list.innerHTML = '';
+            
+            if (data.length > 0) {
+                data.forEach(s => {
+                    const item = document.createElement('a');
+                    item.href = `dossier-detail.html?id=${s.id}`;
+                    item.className = 'activity-item';
+                    item.style.textDecoration = 'none';
+                    item.innerHTML = `
+                        <div style="position: relative;">
+                            <img src="${s.photo_url}" class="preview-img" style="border: 2px solid ${s.statut === 'En Cours' ? 'var(--brand-blue)' : 'var(--success)'}">
+                            ${s.statut === 'En Cours' ? '<div style="position: absolute; top: -5px; right: -5px; width: 10px; height: 100%; border-radius: 50%;"></div>' : ''}
+                        </div>
+                        <div class="activity-info" style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <p style="font-size: 0.6rem; color: var(--slate-400); font-weight: 800;">${new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short'})}</p>
+                                <span class="badge" style="background: ${s.statut === 'En Cours' ? 'var(--slate-100)' : '#dcfce7'}; color: ${s.statut === 'En Cours' ? 'var(--brand-navy)' : 'var(--success)'}">${s.statut}</span>
+                            </div>
+                            <h4 style="margin-top: 0.2rem;">${s.livreur.nom}</h4>
+                            <p style="font-size: 0.7rem; color: var(--slate-600);">${s.zone_libre} • ${s.nb_colis} colis</p>
+                            <h5 style="color: var(--brand-navy); font-weight: 900; margin-top: 0.25rem;">${formatFCFA(s.montant_total)}</h5>
+                        </div>
+                        <i data-lucide="chevron-right" style="color: var(--slate-200); width: 18px;"></i>
+                    `;
+                    list.appendChild(item);
+                });
+            } else {
+                list.innerHTML = '<div style="text-align: center; padding: 4rem 2rem; color: var(--slate-400);"><p>Aucun résultat correspondant.</p></div>';
+            }
+            lucide.createIcons();
+        }
+
+        function updateSummary(data) {
+            const bar = document.getElementById('summaryBar');
+            if (data.length > 0) {
+                bar.style.display = 'flex';
+                const total = data.reduce((sum, s) => sum + Number(s.montant_total), 0);
+                document.getElementById('periodTotal').textContent = formatFCFA(total);
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

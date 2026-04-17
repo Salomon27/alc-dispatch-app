@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Performance Livreur | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <main>
+        <header class="page-header">
+            <div>
+                <button onclick="history.back()" style="background: none; border: none; color: var(--slate-600); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <i data-lucide="arrow-left" style="width: 14px;"></i> RETOUR BOSS
+                </button>
+                <h2 id="livreurNom" style="font-size: 1.5rem; font-weight: 900; color: var(--brand-navy);">--</h2>
+                <p id="livreurContact" style="font-size: 0.75rem; color: var(--brand-blue); font-weight: 700;">Chargement...</p>
+            </div>
+            <div id="callBtn" class="avatar" style="background: var(--success); color: white; cursor: pointer;">
+                <i data-lucide="phone" style="width: 18px;"></i>
+            </div>
+        </header>
+
+        <div class="kpi-grid" style="margin-top: 1rem;">
+            <div class="kpi-card" style="grid-column: span 2; background: var(--brand-navy); color: white;">
+                <p class="label" style="color: rgba(255,255,255,0.7);">Chiffre d'Affaires Cumulé</p>
+                <h1 id="totalRevenue" style="font-size: 2rem; color: white;">0 F</h1>
+            </div>
+            <div class="kpi-card">
+                <p class="label">Taux Succès</p>
+                <p class="value" id="successRate" style="color: var(--success);">0%</p>
+            </div>
+            <div class="kpi-card">
+                <p class="label">Total Colis</p>
+                <p class="value" id="totalColis">0</p>
+            </div>
+        </div>
+
+        <h3 style="font-size: 0.85rem; font-weight: 800; margin: 2rem 0 1rem; color: var(--brand-navy); text-transform: uppercase;">Historique des tournées</h3>
+        <div id="historyList">
+            <div style="text-align: center; padding: 2rem;"><i data-lucide="loader-2" style="width: 24px; animation: spin 1s infinite;"></i></div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { formatFCFA, checkAuth } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            checkAuth('patronne');
+            lucide.createIcons();
+            const nom = new URLSearchParams(window.location.search).get('nom');
+            if (!nom) return;
+
+            document.getElementById('livreurNom').textContent = nom;
+            loadLivreurStats(nom);
+        }
+
+        async function loadLivreurStats(nom) {
+            // 1. Get Livreur Info
+            const { data: livreur } = await supabaseClient
+                .from('livreurs')
+                .select('*')
+                .eq('nom', nom)
+                .single();
+            
+            if (livreur) {
+                document.getElementById('livreurContact').textContent = livreur.telephone || 'Aucun numéro';
+                document.getElementById('callBtn').onclick = () => window.location.href = `tel:${livreur.telephone}`;
+            }
+
+            // 2. Get Performance
+            const { data: sorties } = await supabaseClient
+                .from('sorties')
+                .select('*, livreur:livreurs(nom)')
+                .eq('livreur_id', livreur.id)
+                .order('created_at', { ascending: false });
+
+            if (sorties) {
+                let revenue = 0;
+                let colis = 0;
+                let retours = 0;
+
+                const list = document.getElementById('historyList');
+                list.innerHTML = '';
+
+                sorties.forEach(s => {
+                    const localAjouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const localRetours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+                    const net = (Number(s.montant_total) + localAjouts - localRetours);
+                    revenue += net;
+
+                    const nbA = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb), 0);
+                    const nbR = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.nb || 1), 0);
+                    colis += (Number(s.nb_colis) + nbA);
+                    retours += nbR;
+
+                    // Add to list
+                    const item = document.createElement('a');
+                    item.href = `dossier-detail.html?id=${s.id}`;
+                    item.className = 'activity-item';
+                    item.style.textDecoration = 'none';
+                    item.style.color = 'inherit';
+                    item.innerHTML = `
+                        <img src="${s.photo_url}" class="preview-img">
+                        <div class="activity-info">
+                            <h4>${new Date(s.created_at).toLocaleDateString()}</h4>
+                            <p>${s.zone_libre} • ${s.statut}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-weight: 900; color: var(--brand-navy);">${formatFCFA(net)}</p>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+
+                document.getElementById('totalRevenue').textContent = formatFCFA(revenue);
+                document.getElementById('totalColis').textContent = colis;
+                const rate = colis > 0 ? Math.round(((colis - retours) / colis) * 100) : 0;
+                document.getElementById('successRate').textContent = `${rate}%`;
+            } else {
+                document.getElementById('historyList').innerHTML = '<p style="text-align: center; color: var(--slate-400);">Aucune tournée.</p>';
+            }
+            lucide.createIcons();
+        }
+
+        init();
+    </script>
+</body>
+</html>

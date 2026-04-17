@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Détail Dossier | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .timeline { position: relative; padding-left: 1.5rem; margin-top: 1.5rem; }
+        .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--slate-100); }
+        .timeline-item { position: relative; margin-bottom: 2rem; }
+        .timeline-item::before { content: ''; position: absolute; left: -21px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: white; border: 3px solid var(--brand-navy); z-index: 1; }
+        .timeline-item.type-retour::before { border-color: var(--danger); }
+        .timeline-card { background: var(--white); border: 1px solid var(--slate-200); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); }
+        .colis-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-top: 0.75rem; }
+        .colis-thumb { width: 100%; aspect-ratio: 1; border-radius: 6px; object-fit: cover; border: 1px solid var(--slate-100); }
+    </style>
+</head>
+<body>
+    <main>
+        <header class="page-header" style="margin-bottom: 1.5rem;">
+            <div>
+                <button onclick="history.back()" style="background: none; border: none; color: var(--slate-600); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <i data-lucide="arrow-left" style="width: 14px;"></i> RETOUR ARCHIVES
+                </button>
+                <h2 id="livreurNom" style="font-size: 1.5rem; font-weight: 900; color: var(--brand-navy);">--</h2>
+                <div id="badgeStatus" class="badge">--</div>
+            </div>
+            <button id="shareBtn" style="background: #25D366; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="share-2" style="width: 20px;"></i>
+            </button>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <p class="label">Total Brut</p>
+                <p class="value" id="brutAmount">0 F</p>
+            </div>
+            <div class="kpi-card" style="border-color: var(--danger); background: #fff5f5;">
+                <p class="label" style="color: var(--danger);">Total Retours</p>
+                <p class="value" id="retourAmount" style="color: var(--danger);">0 F</p>
+            </div>
+        </div>
+
+        <div class="admin-card" style="background: var(--brand-navy); color: white; text-align: center; padding: 1.5rem;">
+            <p style="font-size: 0.7rem; font-weight: 700; opacity: 0.8; text-transform: uppercase;">Somme nette encaissée</p>
+            <h1 id="netAmount" style="font-size: 2.25rem; font-weight: 900; color: white; margin: 0.5rem 0;">0 F</h1>
+            <p id="zoneLabel" style="font-size: 0.8rem; font-weight: 700; opacity: 0.9;"></p>
+        </div>
+
+        <h3 style="font-size: 0.85rem; font-weight: 900; color: var(--slate-700); margin: 2rem 0 1rem; text-transform: uppercase; letter-spacing: 0.05em;">Ligne de temps (Timeline)</h3>
+        
+        <div class="timeline" id="mainTimeline"></div>
+
+        <div id="loader" style="text-align: center; padding: 4rem 2rem;">
+            <i data-lucide="loader-2" style="width: 32px; height: 32px; color: var(--brand-blue); animation: spin 1s infinite;"></i>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="dispatch.html" class="nav-item"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item active"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </nav>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { formatFCFA, checkAuth } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentSortie = null;
+
+        async function init() {
+            checkAuth(); // Protection de la route
+            lucide.createIcons();
+            const id = new URLSearchParams(window.location.search).get('id');
+            if (!id) return;
+
+            const { data, error } = await supabaseClient
+                .from('sorties')
+                .select('*, livreur:livreurs(nom)')
+                .eq('id', id)
+                .single();
+
+            if (data) {
+                currentSortie = data;
+                renderDossier(data);
+                document.getElementById('loader').classList.add('hidden');
+            }
+            lucide.createIcons();
+
+            document.getElementById('shareBtn').addEventListener('click', shareDossier);
+        }
+
+        function renderDossier(s) {
+            const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+            const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+            const brut = Number(s.montant_total) + ajouts;
+            const net = brut - retours;
+
+            document.getElementById('livreurNom').textContent = s.livreur.nom;
+            document.getElementById('brutAmount').textContent = formatFCFA(brut);
+            document.getElementById('retourAmount').textContent = formatFCFA(retours);
+            document.getElementById('netAmount').textContent = formatFCFA(net);
+            document.getElementById('zoneLabel').textContent = `Zone : ${s.zone_libre}`;
+            
+            const badge = document.getElementById('badgeStatus');
+            badge.textContent = s.statut;
+            badge.style.background = s.statut === 'En Cours' ? 'var(--slate-100)' : '#dcfce7';
+            badge.style.color = s.statut === 'En Cours' ? 'var(--brand-navy)' : 'var(--success)';
+
+            const timeline = document.getElementById('mainTimeline');
+            
+            // Événement Départ
+            addTimelineItem(timeline, {
+                title: "Départ Tournée",
+                time: new Date(s.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+                amount: s.montant_total,
+                details: s.details_colis,
+                photo: s.photo_url,
+                type: 'start'
+            });
+
+            // Événements Compléments / Retours
+            if (s.completions) {
+                s.completions.forEach(evt => {
+                    addTimelineItem(timeline, {
+                        title: evt.type === 'ajout' ? 'Chargement Supplémentaire' : 'Colis Retourné',
+                        time: new Date(evt.date).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+                        amount: evt.montant,
+                        desc: evt.commentaire,
+                        photo: evt.photo_url,
+                        type: evt.type
+                    });
+                });
+            }
+        }
+
+        function addTimelineItem(container, data) {
+            const div = document.createElement('div');
+            div.className = `timeline-item type-${data.type}`;
+            
+            let photoHtml = `<img src="${data.photo}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-top: 0.75rem;">`;
+            if (data.details && data.details.length > 0) {
+                photoHtml = `
+                    <div class="colis-grid">
+                        ${data.details.map(d => `<img src="${d.photo_url}" class="colis-thumb">`).join('')}
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="timeline-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <p style="font-size: 0.6rem; color: var(--slate-400); font-weight: 800;">${data.time}</p>
+                            <h5 style="font-size: 0.85rem; font-weight: 800; color: var(--brand-navy);">${data.title}</h5>
+                        </div>
+                        <p style="font-size: 0.9rem; font-weight: 900; color: ${data.type === 'retour' ? 'var(--danger)' : 'var(--brand-navy)'}">
+                            ${data.type === 'retour' ? '-' : '+'}${formatFCFA(data.amount)}
+                        </p>
+                    </div>
+                    ${data.desc ? `<p style="font-size: 0.7rem; color: var(--slate-600); margin-top: 0.4rem;">Note : ${data.desc}</p>` : ''}
+                    ${photoHtml}
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function shareDossier() {
+            const text = `📦 *RECU ALC - ${currentSortie.livreur.nom}*\n` +
+                         `📅 Date: ${new Date(currentSortie.created_at).toLocaleDateString()}\n` +
+                         `📍 Zone: ${currentSortie.zone_libre}\n` +
+                         `---------------------------\n` +
+                         `✅ Net encaissé: *${document.getElementById('netAmount').textContent}*\n` +
+                         `---------------------------\n` +
+                         `_Généré par ALC App_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+        }
+
+        init();
+    </script>
+</body>
+</html>

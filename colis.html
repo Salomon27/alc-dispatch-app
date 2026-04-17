@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Registre Colis | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #f8fafc; font-family: 'Inter', sans-serif; color: var(--slate-800); }
+        
+        .admin-header {
+            background: white;
+            padding: 1.5rem 1rem 1rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--slate-200);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+
+        .header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; }
+        
+        .back-btn { background: none; border: none; color: var(--slate-500); font-weight: 700; font-size: 0.7rem; display: flex; align-items: center; gap: 0.4rem; padding: 0; margin-bottom: 0.5rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .page-title { font-size: 1.25rem; font-weight: 900; color: var(--brand-navy); margin: 0; }
+        .page-subtitle { font-size: 0.7rem; font-weight: 600; color: var(--slate-500); margin-top: 0.1rem; }
+        
+        .stat-block { text-align: right; }
+        .stat-val { font-size: 1.25rem; font-weight: 900; color: var(--brand-navy); letter-spacing: -0.02em; }
+        .stat-label { font-size: 0.65rem; font-weight: 800; color: var(--slate-400); text-transform: uppercase; }
+
+        .search-container {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0.6rem 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .search-container input {
+            background: transparent; border: none; width: 100%; outline: none; font-size: 0.8rem; font-weight: 600; padding-left: 0.5rem; color: var(--brand-navy);
+        }
+        .search-container input::placeholder { color: var(--slate-400); font-weight: 500; }
+
+        .filter-row {
+            display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem;
+        }
+        .filter-row::-webkit-scrollbar { display: none; }
+        .filter-btn {
+            background: white; border: 1px solid var(--slate-200); padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.7rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap;
+        }
+        .filter-btn.active {
+            background: var(--brand-navy); border-color: var(--brand-navy); color: white;
+        }
+
+        .list-container { padding: 1rem 1rem 6rem 1rem; }
+
+        .list-item {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: grid;
+            grid-template-columns: 45px 1fr auto;
+            gap: 0.75rem;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+        }
+        .list-item:active { background: var(--slate-50); }
+        
+        .item-thumb {
+            width: 45px; height: 45px; background: var(--slate-100); border-radius: 6px; border: 1px solid var(--slate-200); overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+        .item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .item-core h4 { font-size: 0.85rem; font-weight: 800; color: var(--brand-navy); margin: 0 0 0.1rem 0; }
+        .item-core p { font-size: 0.7rem; font-weight: 500; color: var(--slate-500); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+        .item-meta { font-size: 0.6rem; color: var(--slate-400); font-weight: 700; display: flex; gap: 0.5rem; margin-top: 0.2rem; }
+        
+        .item-actions { text-align: right; }
+        .item-amount { font-size: 0.95rem; font-weight: 900; color: var(--brand-navy); }
+        .item-amount.danger { color: var(--danger); }
+        
+        .badge {
+            display: inline-block; padding: 0.2rem 0.4rem; font-size: 0.55rem; font-weight: 800; border-radius: 4px; text-transform: uppercase; margin-top: 0.2rem;
+        }
+        .b-neutral { background: var(--slate-100); color: var(--slate-600); border: 1px solid var(--slate-200); }
+        .b-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+        .b-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+
+        /* Lightbox Administrative */
+        #lightbox {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 3000; display: none; flex-direction: column;
+        }
+        .lb-header { padding: 1.25rem 1rem; display: flex; justify-content: space-between; align-items: center; background: white; border-bottom: 1px solid var(--slate-200); }
+        .lb-title { font-size: 1.1rem; font-weight: 900; color: var(--brand-navy); margin: 0; }
+        
+        .lb-body { flex: 1; overflow-y: auto; padding: 1rem; }
+        
+        .lb-img-box { width: 100%; height: 250px; border-radius: 8px; border: 1px solid var(--slate-200); background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 1.5rem; padding: 0.5rem; }
+        .lb-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .data-card { background: white; border: 1px solid var(--slate-200); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .data-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.5rem 0; border-bottom: 1px solid var(--slate-100); }
+        .data-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .data-label { font-size: 0.7rem; font-weight: 700; color: var(--slate-500); text-transform: uppercase; }
+        .data-value { font-size: 0.85rem; font-weight: 800; color: var(--brand-navy); text-align: right; max-width: 60%; word-wrap: break-word; }
+        
+    </style>
+</head>
+<body>
+
+    <div class="admin-header">
+        <div class="header-top">
+            <div>
+                <button onclick="history.back()" class="back-btn"><i data-lucide="arrow-left" style="width: 14px;"></i> Retour</button>
+                <h1 class="page-title">Registre Colis</h1>
+                <p class="page-subtitle">Exportation des données directes</p>
+            </div>
+            <div class="stat-block">
+                <div class="stat-label">Total Déclaré</div>
+                <div class="stat-val" id="totalMoneyText">0 F</div>
+                <div style="font-size: 0.65rem; color: var(--slate-500); font-weight: 700; margin-top: 0.1rem;"><span id="totalColisText">0</span> éléments</div>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <i data-lucide="search" style="width: 16px; color: var(--slate-400);"></i>
+            <input type="text" id="searchInput" placeholder="Filtrer par livreur, zone, N°...">
+        </div>
+
+        <div class="filter-row">
+            <button class="filter-btn active" data-filter="all">Tous les flux</button>
+            <button class="filter-btn" data-filter="En Cours">En Transit</button>
+            <button class="filter-btn" data-filter="Clôturé">Clôturés</button>
+            <button class="filter-btn" data-filter="retour">Retours Litiges</button>
+            <button class="filter-btn" data-filter="ajout">Ajouts Exceptionnels</button>
+        </div>
+    </div>
+
+    <div class="list-container" id="colisList">
+        <div style="text-align: center; padding: 3rem;">
+            <i data-lucide="loader-2" style="width: 24px; color: var(--slate-400); animation: spin 1s infinite; margin: 0 auto;"></i>
+            <p style="font-size: 0.75rem; font-weight: 600; color: var(--slate-500); margin-top: 1rem;">Chargement du registre...</p>
+        </div>
+    </div>
+
+    <nav class="bottom-nav" style="border-top: 1px solid var(--slate-200); background: white;">
+        <a href="patronne.html" class="nav-item"><i data-lucide="crown"></i><span>Boss</span></a>
+        <a href="colis.html" class="nav-item active"><i data-lucide="folder-open"></i><span>Registre</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Audits</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Équipe</span></a>
+    </nav>
+
+    <!-- LIGHTBOX ADMINISTRATIVE -->
+    <div id="lightbox">
+        <div class="lb-header">
+            <h2 class="lb-title">Détail Opération</h2>
+            <button onclick="closeLightbox()" style="background: none; border: none; color: var(--slate-600); cursor: pointer; padding: 0.5rem;"><i data-lucide="x" style="width: 20px;"></i></button>
+        </div>
+        <div class="lb-body">
+            <div class="lb-img-box">
+                <img id="lbImg" src="">
+            </div>
+            
+            <div class="data-card">
+                <div class="data-row">
+                    <span class="data-label">Statut</span>
+                    <span id="lbStatus" class="badge">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Montant</span>
+                    <span id="lbValeur" class="data-value" style="font-size: 1.1rem;">0 F</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Date & Heure</span>
+                    <span id="lbDate" class="data-value">--</span>
+                </div>
+            </div>
+
+            <div class="data-card">
+                <div class="data-row">
+                    <span class="data-label">Livreur assigné</span>
+                    <span id="lbLivreur" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Secteur / Zone</span>
+                    <span id="lbZone" class="data-value">--</span>
+                </div>
+                <div class="data-row" style="flex-direction: column; align-items: flex-start;">
+                    <span class="data-label" style="margin-bottom: 0.5rem;">Observation</span>
+                    <span id="lbNote" class="data-value" style="text-align: left; max-width: 100%; color: var(--slate-600); font-weight: 500;">--</span>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 1rem; background: white; border-top: 1px solid var(--slate-200);">
+             <button onclick="closeLightbox()" class="btn" style="width: 100%; margin: 0; background: var(--slate-100); color: var(--brand-navy); border: 1px solid var(--slate-200);">FERMER LE DOSSIER</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, formatFCFA } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let masterColisList = [];
+        let currentFilter = 'all';
+
+        async function init() {
+            checkAuth('patronne');
+            lucide.createIcons();
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    renderColis();
+                });
+            });
+
+            document.getElementById('searchInput').addEventListener('input', renderColis);
+
+            await extractAllColis();
+        }
+
+        async function extractAllColis() {
+            const { data, error } = await supabaseClient
+                .from('sorties')
+                .select('id, created_at, statut, zone_libre, livreur:livreurs(nom), details_colis, completions')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                document.getElementById('colisList').innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--danger); font-size: 0.8rem; font-weight: 700;">Erreur de connexion base de données.</div>`;
+                return;
+            }
+
+            masterColisList = [];
+
+            data.forEach(sortie => {
+                const dateSortie = sortie.created_at;
+                const livreurNom = sortie.livreur?.nom || 'Inconnu';
+                
+                if (sortie.details_colis && Array.isArray(sortie.details_colis)) {
+                    sortie.details_colis.forEach((item, index) => {
+                        masterColisList.push({
+                            id: `base-${sortie.id}-${index}`,
+                            type: 'base',
+                            livreur: livreurNom,
+                            zone: sortie.zone_libre,
+                            statut_sortie: sortie.statut,
+                            date: dateSortie,
+                            montant: Number(item.valeur || 0),
+                            photo: item.photo_url || sortie.photo_url, 
+                            note: item.commentaire || 'Flux standard'
+                        });
+                    });
+                }
+
+                if (sortie.completions && Array.isArray(sortie.completions)) {
+                    sortie.completions.forEach(comp => {
+                        masterColisList.push({
+                            id: `comp-${comp.id || Math.random()}`,
+                            type: comp.type, 
+                            livreur: livreurNom,
+                            zone: sortie.zone_libre,
+                            statut_sortie: sortie.statut,
+                            date: comp.date || dateSortie,
+                            montant: Number(comp.montant || 0),
+                            photo: comp.photo_url,
+                            note: comp.commentaire || (comp.type === 'retour' ? 'Retour déclaré' : 'Ajout déclaré')
+                        });
+                    });
+                }
+            });
+
+            masterColisList.sort((a, b) => new Date(b.date) - new Date(a.date));
+            renderColis();
+        }
+
+        function renderColis() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const list = document.getElementById('colisList');
+            list.innerHTML = '';
+
+            let filtered = masterColisList.filter(c => {
+                let mFilter = true;
+                if (currentFilter === 'En Cours' || currentFilter === 'Clôturé') mFilter = (c.statut_sortie === currentFilter);
+                if (currentFilter === 'retour') mFilter = (c.type === 'retour');
+                if (currentFilter === 'ajout') mFilter = (c.type === 'ajout');
+
+                let mSearch = c.livreur.toLowerCase().includes(query) || 
+                              c.zone.toLowerCase().includes(query) || 
+                              c.note.toLowerCase().includes(query);
+
+                return mFilter && mSearch;
+            });
+
+            const totalMoney = filtered.reduce((s, c) => c.type === 'retour' ? s - c.montant : s + c.montant, 0);
+            document.getElementById('totalMoneyText').textContent = formatFCFA(totalMoney);
+            document.getElementById('totalColisText').textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--slate-400); font-weight: 600; font-size: 0.8rem;">Aucune entrée trouvée.</div>`;
+                return;
+            }
+
+            filtered.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.onclick = () => openLightbox(c);
+
+                let badgeClass = 'b-neutral';
+                let typeLabel = 'Initial';
+                if(c.type === 'ajout') { typeLabel = 'Ajout'; }
+                if(c.type === 'retour') { badgeClass = 'b-danger'; typeLabel = 'Litige/Retour'; }
+
+                const d = new Date(c.date);
+                const dateStr = d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit'});
+
+                item.innerHTML = `
+                    <div class="item-thumb">
+                        ${c.photo ? `<img src="${c.photo}" loading="lazy">` : `<i data-lucide="image" style="width: 16px; color: var(--slate-300);"></i>`}
+                    </div>
+                    <div class="item-core">
+                        <h4>${c.livreur}</h4>
+                        <p>${c.note}</p>
+                        <div class="item-meta">
+                            <span>${dateStr}</span> • <span>${c.zone}</span>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <div class="item-amount ${c.type === 'retour' ? 'danger' : ''}">${c.type === 'retour' ? '-' : ''}${formatFCFA(c.montant)}</div>
+                        <div class="badge ${badgeClass}">${typeLabel}</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        window.openLightbox = function(c) {
+            document.getElementById('lbImg').src = c.photo || '';
+            document.getElementById('lbImg').style.display = c.photo ? 'block' : 'none';
+            
+            document.getElementById('lbLivreur').textContent = c.livreur;
+            document.getElementById('lbZone').textContent = c.zone;
+            document.getElementById('lbValeur').textContent = formatFCFA(c.montant);
+            document.getElementById('lbValeur').style.color = c.type === 'retour' ? 'var(--danger)' : 'var(--brand-navy)';
+            
+            let statusClass = 'b-neutral';
+            let statusText = 'Flux Initial';
+            if(c.type === 'ajout') { statusText = 'Ajout'; }
+            if(c.type === 'retour') { statusClass = 'b-danger'; statusText = 'Retour'; }
+            if(c.statut_sortie === 'Clôturé') { statusClass = 'b-success'; statusText += ' (Clôturé)'; }
+            
+            const lbStatus = document.getElementById('lbStatus');
+            lbStatus.textContent = statusText;
+            lbStatus.className = 'badge ' + statusClass;
+            
+            document.getElementById('lbNote').textContent = c.note || '--';
+            
+            const d = new Date(c.date);
+            document.getElementById('lbDate').textContent = d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+
+            document.getElementById('lightbox').style.display = 'flex';
+        }
+
+        window.closeLightbox = function() {
+            document.getElementById('lightbox').style.display = 'none';
+        }
+
+        init();
+    </script>
+</body>
+</html>

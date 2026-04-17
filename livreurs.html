@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Équipe | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .livreur-link { text-decoration: none; color: inherit; display: block; }
+        .livreur-card {
+            background: white;
+            border: 1px solid var(--slate-100);
+            border-radius: 20px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .livreur-card:active { transform: scale(0.98); background: var(--slate-50); }
+        
+        .avatar-circle {
+            width: 52px;
+            height: 52px;
+            min-width: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 1.3rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        .livreur-info { flex: 1; min-width: 0; }
+        .livreur-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.25rem; }
+
+        .status-badge {
+            font-size: 0.55rem; font-weight: 800; padding: 2px 6px; border-radius: 5px; text-transform: uppercase;
+        }
+        .status-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .status-idle { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+        .info-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--slate-500); margin-top: 0.15rem; }
+        .info-row i { width: 12px; color: var(--brand-blue); }
+
+        .action-group { display: flex; gap: 0.4rem; }
+        .action-btn {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body style="background: #f8fafc;">
+    <main>
+        <header class="page-header">
+            <div>
+                <h2 style="font-size: 1.25rem; font-weight: 800;">Livreurs</h2>
+                <p style="font-size: 0.7rem; color: var(--slate-700); font-weight: 700;">Gestion de l'équipe</p>
+            </div>
+            <button id="addLivreurBtn" class="btn" style="width: auto; height: 36px; padding: 0 1rem; background: var(--brand-navy); color: white; margin: 0; font-size: 0.7rem;">
+                <i data-lucide="plus" style="width: 14px;"></i> AJOUTER
+            </button>
+        </header>
+
+        <div id="addForm" class="admin-card hidden" style="background: var(--slate-50); border-style: dashed;">
+            <h4 style="font-size: 0.8rem; margin-bottom: 1rem;">Nouveau Livreur</h4>
+            <div class="form-group" style="margin-bottom: 0.75rem;"><input type="text" id="newNom" placeholder="Nom Complet"></div>
+            <div class="form-group" style="margin-bottom: 0.75rem;"><input type="tel" id="newTel" placeholder="Téléphone"></div>
+            <div class="form-group" style="margin-bottom: 0.75rem;"><input type="text" id="newZone" placeholder="Zone"></div>
+            <div class="form-group" style="margin-bottom: 0.75rem;"><input type="tel" id="newCode" placeholder="Code PIN (4 chiffres)" maxlength="4"></div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button id="saveBtn" class="btn btn-primary" style="flex: 2;">ENREGISTRER</button>
+                <button id="cancelBtn" class="btn" style="flex: 1; background: var(--slate-200); color: var(--slate-700);">X</button>
+            </div>
+        </div>
+
+        <div id="livreurList" style="margin-top: 1rem;">
+            <div style="text-align: center; padding: 4rem 2rem;">
+                <i data-lucide="loader-2" class="spin" style="width: 24px; color: var(--brand-blue);"></i>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="dispatch.html" class="nav-item"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item active"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </nav>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, getSession } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            const role = checkAuth();
+            lucide.createIcons();
+            loadLivreurs();
+
+            if (role === 'patronne') {
+                document.getElementById('addLivreurBtn').style.display = 'none';
+            } else {
+                document.getElementById('addLivreurBtn').addEventListener('click', () => {
+                    document.getElementById('addForm').classList.toggle('hidden');
+                });
+                document.getElementById('cancelBtn').addEventListener('click', () => document.getElementById('addForm').classList.add('hidden'));
+                document.getElementById('saveBtn').addEventListener('click', saveLivreur);
+            }
+        }
+
+        async function loadLivreurs() {
+            const { data: livreurs } = await supabaseClient.from('livreurs').select('*').order('nom');
+            const { data: activeSorties } = await supabaseClient.from('sorties').select('livreur_id').eq('statut', 'En Cours');
+            const activeIds = new Set((activeSorties || []).map(s => s.livreur_id));
+
+            const list = document.getElementById('livreurList');
+            list.innerHTML = '';
+            
+            if (livreurs && livreurs.length > 0) {
+                livreurs.forEach(l => {
+                    const initials = l.nom.charAt(0).toUpperCase();
+                    const isActive = activeIds.has(l.id);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'livreur-link';
+                    item.style.cursor = 'pointer';
+                    item.onclick = (e) => {
+                        if (!e.target.closest('.action-btn')) {
+                            localStorage.setItem('current_livreur_id', l.id);
+                            window.location.href = `livreur-detail.html?id=${l.id}`;
+                        }
+                    };
+                    
+                    item.innerHTML = `
+                        <div class="livreur-card">
+                            <div class="avatar-circle">${initials}</div>
+                            <div class="livreur-info">
+                                <div class="livreur-name-row">
+                                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--brand-navy); margin: 0;">${l.nom}</h4>
+                                    <span class="status-badge ${isActive ? 'status-active' : 'status-idle'}">${isActive ? 'En Tournée' : 'Libre'}</span>
+                                </div>
+                                <div class="info-row"><i data-lucide="map-pin"></i><span>${l.zone || '--'}</span></div>
+                                <div class="info-row"><i data-lucide="phone"></i><span>${l.telephone || '--'}</span></div>
+                            </div>
+                            <div class="action-group">
+                                <object>
+                                    <a href="tel:${l.telephone}" class="action-btn" style="background: #22c55e; color: white;">
+                                        <i data-lucide="phone" style="width: 16px;"></i>
+                                    </a>
+                                </object>
+                                <div class="action-btn" style="color: var(--slate-300);">
+                                    <i data-lucide="chevron-right" style="width: 20px;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            } else {
+                list.innerHTML = '<p style="text-align: center; padding: 4rem 2rem; color: var(--slate-400);">Aucun livreur.</p>';
+            }
+            lucide.createIcons();
+        }
+
+        async function saveLivreur() {
+            const nom = document.getElementById('newNom').value.trim();
+            const telephone = document.getElementById('newTel').value.trim();
+            const zone = document.getElementById('newZone').value.trim();
+            const code = document.getElementById('newCode').value.trim();
+            
+            if(!nom || code.length !== 4) {
+                alert("Nom requis et Code PIN doit faire 4 chiffres.");
+                return;
+            }
+
+            const { error } = await supabaseClient.from('livreurs').insert({ 
+                nom, 
+                telephone, 
+                zone,
+                code_pin: code
+            });
+
+            if(!error) {
+                document.getElementById('newNom').value = '';
+                document.getElementById('newTel').value = '';
+                document.getElementById('newZone').value = '';
+                document.getElementById('newCode').value = '';
+                document.getElementById('addForm').classList.add('hidden');
+                loadLivreurs();
+            } else {
+                alert("Erreur lors de l'enregistrement : " + error.message);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

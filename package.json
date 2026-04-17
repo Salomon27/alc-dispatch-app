@@ -1,0 +1,9 @@
+{
+  "name": "alc-html",
+  "version": "1.0.0",
+  "description": "Abidjan Logistique Connect - HTML Version",
+  "scripts": {
+    "dev": "npx serve . -l 3001"
+  },
+  "dependencies": {}
+}

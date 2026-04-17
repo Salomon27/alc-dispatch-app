@@ -1,0 +1,17 @@
+{
+  "name": "Abidjan Logistique Connect",
+  "short_name": "ALC",
+  "description": "Système de Gestion Logistique Terrain",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "alc_app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

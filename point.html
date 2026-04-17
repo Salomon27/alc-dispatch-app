@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Faire le Point | ALC</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .return-card {
+            border: 2px dashed var(--danger);
+            background: #fff5f5;
+        }
+        .capture-return {
+            width: 100%;
+            height: 80px;
+            border: 1px dashed var(--danger);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            background: white;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+        .capture-return img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+        
+        /* NOUVEAU DESIGN ÉPURÉ */
+        .select-header {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--slate-100);
+            text-align: center;
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .action-box {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: var(--slate-600);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .action-box i { display: block; margin: 0 auto 0.5rem auto; width: 20px; height: 20px; color: var(--slate-500); }
+        .action-box:active { background: var(--slate-50); }
+        .action-box.red { border-color: var(--slate-200); color: var(--danger); }
+        .action-box.red i { color: var(--danger); }
+        
+        .form-panel {
+            background: white;
+            padding: 1.25rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .form-panel.active { display: block; }
+        .close-panel { float: right; color: var(--slate-400); font-weight: bold; background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+    </style>
+</head>
+<body style="background: #f8fafc;">
+    <main>
+        <header class="page-header" style="margin-bottom: 1.5rem; background: white; padding: 1rem; border-bottom: 1px solid var(--slate-200); border-radius: 0;">
+            <div>
+                <h2 style="font-size: 1.25rem; font-weight: 900; color: var(--brand-navy); margin: 0;">Point Financier</h2>
+                <p style="font-size: 0.7rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Contrôle Régulier</p>
+            </div>
+            <div class="avatar" style="background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--slate-600);"><i data-lucide="wallet" style="width: 18px;"></i></div>
+        </header>
+
+        <div id="selectionArea" class="select-header">
+            <label style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">SELECTIONNER LE LIVREUR</label>
+            <select id="activeLivreurSelect" class="form-group" style="text-align: center; text-align-last: center; font-weight: 800; color: var(--brand-navy); border-color: var(--slate-200); box-shadow: none;">
+                <option value="">-- Choisissez --</option>
+            </select>
+        </div>
+
+        <div id="pointDetails" class="hidden">
+            
+            <!-- EN-TETE RECAPITULATIF LEGER -->
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; padding: 0 0.5rem;">
+                <div>
+                    <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400);">CHARGEMENT INITIAL</p>
+                    <h3 id="initialAmount" style="font-weight: 900; color: var(--brand-navy); font-size: 1.1rem;">0 F</h3>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400);">TOTAL COLIS</p>
+                    <h3 id="initialCount" style="font-weight: 900; color: var(--slate-700); font-size: 1.1rem;">0</h3>
+                </div>
+            </div>
+
+            <!-- BOUTONS D'ACTION (REMPLACE LES GROS PANNEAUX) -->
+            <div class="action-grid" id="actionGrid">
+                <div class="action-box blue" onclick="togglePanel('ajoutPanel')">
+                    <i data-lucide="plus-circle"></i>
+                    Colis Supplémentaire
+                </div>
+                <div class="action-box red" onclick="togglePanel('retourPanel')">
+                    <i data-lucide="corner-down-left"></i>
+                    Déclarer un Retour
+                </div>
+            </div>
+
+            <!-- PANNEAU CACHÉ : AJOUT -->
+            <div id="ajoutPanel" class="form-panel" style="border: 1px solid var(--slate-200);">
+                <button class="close-panel" onclick="togglePanel(null)" style="color: var(--slate-500);">×</button>
+                <h4 style="color: var(--brand-navy); font-weight: 800; font-size: 0.85rem; margin-bottom: 1rem; text-transform: uppercase;">Ajout de Colis</h4>
+                
+                <div class="capture-return" style="border-color: var(--slate-300); background: var(--slate-50);" onclick="document.getElementById('ajoutPhotoInput').click()">
+                    <img id="ajoutPhotoPreview" class="hidden">
+                    <div id="ajoutPhotoPlaceholder" style="text-align: center;">
+                        <i data-lucide="camera" style="color: var(--slate-400); width: 20px; margin:0 auto;"></i>
+                        <p style="font-size: 0.6rem; color: var(--slate-500); font-weight: 700; margin-top: 0.2rem;">PHOTOGRAPHIER LE(S) COLIS</p>
+                    </div>
+                </div>
+                <input type="file" id="ajoutPhotoInput" accept="image/*" capture="environment" class="hidden">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div><label style="font-size:0.6rem;font-weight:800;color:var(--slate-400);">MONTANT</label><input type="number" id="addAmount" placeholder="Ex: 5000"></div>
+                    <div><label style="font-size:0.6rem;font-weight:800;color:var(--slate-400);">QUANTITÉ</label><input type="number" id="addCount" placeholder="Colis"></div>
+                </div>
+                <input type="text" id="addComment" placeholder="Note / Observation" class="form-group" style="margin-bottom: 1rem; border: 1px solid var(--slate-200); font-size: 0.75rem;">
+                <button id="addColisBtn" class="btn" style="background: var(--brand-navy); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">ENREGISTRER L'AJOUT</button>
+            </div>
+
+            <!-- PANNEAU CACHÉ : RETOUR -->
+            <div id="retourPanel" class="form-panel" style="border: 1px solid var(--slate-200);">
+                <button class="close-panel" onclick="togglePanel(null)" style="color: var(--slate-500);">×</button>
+                <h4 style="color: var(--danger); font-weight: 800; font-size: 0.85rem; margin-bottom: 1rem; text-transform: uppercase;">Déclaration Litige / Retour</h4>
+                <div class="capture-return" style="border-color: #fca5a5; background: #fef2f2;" onclick="document.getElementById('returnPhotoInput').click()">
+                    <img id="returnPhotoPreview" class="hidden">
+                    <div id="returnPhotoPlaceholder" style="text-align: center;">
+                        <i data-lucide="camera" style="color: var(--danger); width: 20px; margin:0 auto;"></i>
+                        <p style="font-size: 0.6rem; color: var(--danger); font-weight: 700; margin-top: 0.2rem;">PHOTOGRAPHIER LE COLIS</p>
+                    </div>
+                </div>
+                <input type="file" id="returnPhotoInput" accept="image/*" capture="environment" class="hidden">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div><label style="font-size:0.6rem;font-weight:700;color:var(--danger);">MONTANT (-)</label><input type="number" id="returnAmount" placeholder="Ex: 2500" style="border-color: #fca5a5;"></div>
+                    <div><label style="font-size:0.6rem;font-weight:700;color:var(--danger);">MOTIF LITIGE</label><input type="text" id="returnComment" placeholder="Raisons..." style="border-color: #fca5a5;"></div>
+                </div>
+                <button id="addReturnBtn" class="btn" style="background: white; border: 1px solid var(--danger); color: var(--danger); width: 100%; font-size: 0.75rem; font-weight: 800;">ENREGISTRER LE RETOUR</button>
+            </div>
+
+            <div id="recapArea" style="background: white; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                <h3 style="font-size: 0.75rem; font-weight: 800; margin-bottom: 1rem; color: var(--slate-400); text-transform: uppercase; letter-spacing: 0.05em;">Ligne du temps</h3>
+                <div id="eventsList"></div>
+            </div>
+
+            <div class="admin-card" style="background: white; border: 1px solid var(--slate-200); margin-top: 1rem; text-align: center; border-radius: 8px; padding: 2rem 1.5rem;">
+                <p style="font-size: 0.7rem; font-weight: 800; color: var(--slate-500); letter-spacing: 0.05em; text-transform: uppercase;">Net à Encaisser</p>
+                <h2 id="netToPay" style="font-size: 2.5rem; font-weight: 900; margin: 0.5rem 0; color: var(--brand-navy);">0 F</h2>
+                <div style="height: 1px; background: var(--slate-200); margin: 1rem 0;"></div>
+                <button id="validateClotureBtn" class="btn" style="background: white; color: var(--brand-navy); border: 1px solid var(--slate-300); margin-top: 0.5rem; border-radius: 6px; font-weight: 800; font-size: 0.8rem; padding: 0.85rem;">
+                    VALIDER L'ENCAISSEMENT
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <div class="bottom-nav">
+        <a href="dispatch.html" class="nav-item"><i data-lucide="plus-square"></i><span>Nouveau</span></a>
+        <a href="point.html" class="nav-item active"><i data-lucide="wallet"></i><span>Le Point</span></a>
+        <a href="rapports.html" class="nav-item"><i data-lucide="archive"></i><span>Archives</span></a>
+        <a href="livreurs.html" class="nav-item"><i data-lucide="users"></i><span>Equipe</span></a>
+        <a href="dashboard.html" class="nav-item"><i data-lucide="bar-chart-3"></i><span>Stats</span></a>
+    </div>
+
+    <div id="successOverlay" class="overlay">
+        <div class="overlay-card"><div class="success-icon"><i data-lucide="check" style="width: 32px;"></i></div><h3 style="font-weight: 900;">Clôturé !</h3><p style="font-size: 0.85rem; color: var(--slate-600);">La caisse est à jour.</p></div>
+    </div>
+
+    <!-- GALLERY MODAL -->
+    <div id="photoGallery" class="overlay" style="z-index: 2000; display: none; background: rgba(0,0,0,0.9); padding: 2rem 1rem; overflow-y: auto;">
+        <button onclick="document.getElementById('photoGallery').style.display='none'" style="position: fixed; top: 1rem; right: 1rem; background: var(--danger); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1.2rem;">×</button>
+        <h3 id="galleryTitle" style="color: white; margin-bottom: 1.5rem; text-align: center;">Photos</h3>
+        <div id="galleryGrid" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; padding-bottom: 4rem;"></div>
+    </div>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth, formatFCFA, compressImage } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentSortie = null;
+        let currentReturnPhoto = null;
+        let currentAjoutPhoto = null;
+
+        // Fonction d'UI pour cacher/montrer les panneaux
+        window.togglePanel = function(panelId) {
+            document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+            if(panelId) { document.getElementById(panelId).classList.add('active'); }
+        }
+
+        async function init() {
+            const role = checkAuth('gerant');
+            lucide.createIcons();
+            
+            if (role === 'patronne') {
+                document.getElementById('actionGrid').style.display = 'none';
+                document.getElementById('validateClotureBtn').style.display = 'none';
+                document.querySelector('.page-header h2').textContent = 'Contrôle Caisse';
+                document.querySelector('.page-header p').textContent = 'Mode Consultation Uniquement';
+            }
+
+            await loadActiveSorties();
+
+            // Gestion de l'ouverture automatique depuis le Dashboard Patronne
+            const preSelectId = new URLSearchParams(window.location.search).get('id');
+            if(preSelectId) {
+                const selectElem = document.getElementById('activeLivreurSelect');
+                if(selectElem.querySelector(`option[value="${preSelectId}"]`)) {
+                    selectElem.value = preSelectId;
+                    loadSortieDetail(preSelectId);
+                }
+            }
+
+            document.getElementById('activeLivreurSelect').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    window.togglePanel(null); // fermer tout panel
+                    loadSortieDetail(e.target.value);
+                }
+                else document.getElementById('pointDetails').classList.add('hidden');
+            });
+
+            document.getElementById('returnPhotoInput').addEventListener('change', async (e) => {
+                if (e.target.files[0]) {
+                    const btn = document.getElementById('returnPhotoPlaceholder');
+                    btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i><p>Compression...</p>';
+                    lucide.createIcons();
+                    try {
+                        currentReturnPhoto = await compressImage(e.target.files[0]);
+                        document.getElementById('returnPhotoPreview').src = URL.createObjectURL(currentReturnPhoto);
+                        document.getElementById('returnPhotoPreview').classList.remove('hidden');
+                        document.getElementById('returnPhotoPlaceholder').classList.add('hidden');
+                    } catch (err) {
+                        alert("Erreur: " + err.message);
+                        resetReturnForm();
+                    }
+                }
+            });
+
+            document.getElementById('ajoutPhotoInput').addEventListener('change', async (e) => {
+                if (e.target.files[0]) {
+                    const btn = document.getElementById('ajoutPhotoPlaceholder');
+                    btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i><p>Compression...</p>';
+                    lucide.createIcons();
+                    try {
+                        currentAjoutPhoto = await compressImage(e.target.files[0]);
+                        document.getElementById('ajoutPhotoPreview').src = URL.createObjectURL(currentAjoutPhoto);
+                        document.getElementById('ajoutPhotoPreview').classList.remove('hidden');
+                        document.getElementById('ajoutPhotoPlaceholder').classList.add('hidden');
+                    } catch (err) {
+                        alert("Erreur: " + err.message);
+                        resetAjoutForm();
+                    }
+                }
+            });
+
+            document.getElementById('addReturnBtn').addEventListener('click', addReturn);
+            document.getElementById('addColisBtn').addEventListener('click', addExtraColis);
+            document.getElementById('validateClotureBtn').addEventListener('click', validateCloture);
+        }
+
+        async function loadActiveSorties() {
+            const { data, error } = await supabaseClient.from('sorties').select('id, livreur:livreurs(nom)').eq('statut', 'En Cours');
+            if (error) return;
+            const select = document.getElementById('activeLivreurSelect');
+            if (data) {
+                data.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.livreur.nom;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        async function loadSortieDetail(id) {
+            const { data } = await supabaseClient.from('sorties').select('*, livreur:livreurs(nom)').eq('id', id).single();
+            if (data) {
+                currentSortie = data;
+                document.getElementById('pointDetails').classList.remove('hidden');
+                renderRecap();
+            }
+        }
+
+        function renderRecap() {
+            const initial = Number(currentSortie.montant_total);
+            const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
+            const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
+
+            let initialColisCount = Number(currentSortie.nb_colis);
+            const extraColisCount = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);
+            
+            document.getElementById('initialAmount').textContent = formatFCFA(initial + ajouts);
+            document.getElementById('initialCount').textContent = initialColisCount + extraColisCount;
+            document.getElementById('netToPay').textContent = formatFCFA((initial + ajouts) - retours);
+
+            const list = document.getElementById('eventsList');
+            list.innerHTML = '';
+            addEventToUI(list, 'Départ de base', initial, initialColisCount, currentSortie.photo_url, 'start', currentSortie.created_at, currentSortie.details_colis || [{photo_url: currentSortie.photo_url}], null);
+            if (currentSortie.completions) {
+                currentSortie.completions.forEach(c => {
+                    const photos = c.details || [{ photo_url: c.photo_url, commentaire: c.commentaire, valeur: c.montant }];
+                    addEventToUI(list, c.type === 'ajout' ? 'Oubli Ajouté' : 'Retour Client', c.montant, c.nb, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function addEventToUI(container, label, amount, count, photo, type, dateString, photosArray, itemId) {
+            const div = document.createElement('div');
+            const timeStr = dateString ? new Date(dateString).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : '--:--';
+            
+            div.className = 'activity-item';
+            div.style.background = 'transparent';
+            div.style.border = 'none';
+            div.style.padding = '0.5rem 0';
+            div.style.borderBottom = '1px dashed var(--slate-200)';
+            div.style.borderRadius = '0';
+            div.style.cursor = 'pointer';
+            
+            div.onclick = () => openGallery(label, photosArray);
+
+            const role = localStorage.getItem('alc_role');
+            const deleteHtml = (itemId && role !== 'patronne') ? 
+                `<button onclick="deleteCompletion(event, '${itemId}')" style="background:none; border:none; color:var(--danger); cursor:pointer; padding: 0.2rem 0; margin-top:0.3rem;"><i data-lucide="trash-2" style="width:14px;"></i></button>` : '';
+
+            div.innerHTML = `
+                ${photo ? `<img src="${photo}" class="preview-img" style="border: 2px solid ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':'var(--slate-200)')}; height: 45px; width: 45px; object-fit: cover;">` : '<div style="width:45px;height:45px;background:var(--slate-100);border-radius:10px;"></div>'}
+                <div class="activity-info" style="margin-left: 0.75rem; flex: 1;">
+                    <p style="font-size: 0.65rem; font-weight: 800; color: ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':'var(--slate-500)')}">${label.toUpperCase()} <span style="color:var(--slate-400); font-weight:700; font-size:0.6rem; opacity:0.8;">• ${timeStr}</span></p>
+                    <h5 style="font-size: 1rem; font-weight: 900; color: var(--brand-navy); margin-top: 0.2rem;">${formatFCFA(amount)}</h5>
+                </div>
+                <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+                    <div style="font-size: 0.65rem; color: var(--slate-700); font-weight: 800; background: var(--slate-100); padding: 0.3rem 0.6rem; border-radius: 20px;">
+                        ${count} COLIS <br><span style="font-size:0.55rem; color:var(--brand-blue); opacity:0.8;">VOIR PHOTOS</span>
+                    </div>
+                    ${deleteHtml}
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        window.deleteCompletion = async function(e, id) {
+            e.stopPropagation();
+            if(!confirm("Es-tu sûr de vouloir supprimer cette action ?")) return;
+            
+            const updatedCompletions = currentSortie.completions.filter(c => c.id !== id);
+            const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+            
+            if(!error) {
+                currentSortie.completions = updatedCompletions;
+                renderRecap();
+            } else {
+                alert("Erreur réseau: " + error.message);
+            }
+        }
+
+        window.openGallery = function(title, photos) {
+            document.getElementById('galleryTitle').textContent = "Photos : " + title;
+            const grid = document.getElementById('galleryGrid');
+            grid.innerHTML = '';
+            
+            const role = localStorage.getItem('alc_role');
+            
+            if(photos && photos.length > 0) {
+                photos.forEach(p => {
+                    const pic = p.photo_url || p.photo;
+                    if(!pic) return;
+                    const card = document.createElement('div');
+                    card.style.background = 'white';
+                    card.style.padding = '0.5rem';
+                    card.style.borderRadius = '12px';
+                    card.style.width = '100%';
+                    card.style.maxWidth = '350px';
+                    card.style.textAlign = 'center';
+                    
+                    const label = (p.commentaire || '') + (p.valeur ? ` - ${formatFCFA(p.valeur)}` : '');
+                    
+                    const deleteBtnHtml = (role !== 'patronne') ? 
+                        `<button onclick="deleteIndividualColis('${pic}')" style="background:var(--danger); color:white; border:none; border-radius:6px; padding:0.4rem 1rem; font-size:0.7rem; font-weight:800; cursor:pointer; margin-top:0.75rem; width:100%;">SUPPRIMER CE COLIS</button>` : '';
+                    
+                    card.innerHTML = `
+                        <img src="${pic}" style="width: 100%; border-radius: 8px; margin-bottom: 0.5rem;">
+                        <p style="font-size: 0.75rem; font-weight: 800; color: var(--brand-navy); text-align: center; margin: 0;">${label}</p>
+                        ${deleteBtnHtml}
+                    `;
+                    grid.appendChild(card);
+                });
+            } else {
+                grid.innerHTML = '<p style="color:white;">Aucune photo détaillée.</p>';
+            }
+            
+            document.getElementById('photoGallery').style.display = 'block';
+        }
+
+        window.deleteIndividualColis = async function(photoUrl) {
+            if(!confirm("Êtes-vous sûr de vouloir supprimer définitivement ce colis du bordereau ? Le montant sera déduit.")) return;
+            
+            let changed = false;
+            let isCompletionFullDelete = false;
+            let idToDelete = null;
+            
+            // 1. Chercher dans le départ initial
+            if (currentSortie.details_colis && !changed) {
+                const target = currentSortie.details_colis.find(c => (c.photo_url === photoUrl || c.photo === photoUrl));
+                if (target) {
+                    const deduction = Number(target.valeur || 0);
+                    currentSortie.details_colis = currentSortie.details_colis.filter(c => (c.photo_url !== photoUrl && c.photo !== photoUrl));
+                    currentSortie.montant_total = Math.max(0, Number(currentSortie.montant_total) - deduction);
+                    currentSortie.nb_colis = Math.max(0, Number(currentSortie.nb_colis) - 1);
+                    changed = true;
+                }
+            }
+
+            // 2. Chercher dans les complétions
+            if (currentSortie.completions && !changed) {
+                for (let comp of currentSortie.completions) {
+                    if (comp.details) {
+                        const target = comp.details.find(c => (c.photo_url === photoUrl || c.photo === photoUrl));
+                        if (target) {
+                            const deduction = Number(target.valeur || 0);
+                            comp.details = comp.details.filter(c => (c.photo_url !== photoUrl && c.photo !== photoUrl));
+                            comp.montant = Math.max(0, Number(comp.montant) - deduction);
+                            comp.nb = Math.max(0, Number(comp.nb) - 1);
+                            changed = true;
+                            break;
+                        }
+                    } else if (comp.photo_url === photoUrl) {
+                        isCompletionFullDelete = true;
+                        idToDelete = comp.id;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (changed) {
+                let updates = {};
+                if (isCompletionFullDelete) {
+                    currentSortie.completions = currentSortie.completions.filter(c => c.id !== idToDelete);
+                    updates = { completions: currentSortie.completions };
+                } else {
+                    updates = {
+                        details_colis: currentSortie.details_colis,
+                        completions: currentSortie.completions,
+                        montant_total: currentSortie.montant_total,
+                        nb_colis: currentSortie.nb_colis
+                    };
+                }
+
+                const btnText = document.getElementById('galleryTitle').textContent;
+                document.getElementById('galleryTitle').textContent = "Suppression en cours...";
+
+                const { error } = await supabaseClient.from('sorties').update(updates).eq('id', currentSortie.id);
+                
+                if (!error) {
+                    document.getElementById('photoGallery').style.display = 'none';
+                    renderRecap();
+                } else {
+                    alert("Erreur système lors de la suppression: " + error.message);
+                    document.getElementById('galleryTitle').textContent = btnText;
+                }
+            }
+        }
+
+        async function addReturn() {
+            const amount = document.getElementById('returnAmount').value;
+            const comment = document.getElementById('returnComment').value;
+            if (!amount || !currentReturnPhoto) return alert("Photo et Montant obligatoires pour un retour.");
+
+            const btn = document.getElementById('addReturnBtn');
+            btn.disabled = true;
+            btn.innerHTML = "Traitement...";
+
+            try {
+                const fileName = `retour-${Date.now()}.jpg`;
+                const { error: upErr } = await supabaseClient.storage.from('sorties_photos').upload(fileName, currentReturnPhoto);
+                if (upErr) throw upErr;
+                const { data: urlData } = supabaseClient.storage.from('sorties_photos').getPublicUrl(fileName);
+
+                const newReturn = {
+                    id: Math.random().toString(36).substring(2),
+                    type: 'retour',
+                    date: new Date().toISOString(),
+                    nb: 1,
+                    montant: Number(amount),
+                    photo_url: urlData.publicUrl,
+                    commentaire: comment
+                };
+
+                const updatedCompletions = [...(currentSortie.completions || []), newReturn];
+                const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+                
+                if (!error) {
+                    currentSortie.completions = updatedCompletions;
+                    renderRecap();
+                    resetReturnForm();
+                    window.togglePanel(null); // Ferme le panel !
+                }
+            } catch (e) { alert("Erreur retour: " + e.message); } 
+            finally {
+                btn.disabled = false;
+                btn.innerHTML = 'VALIDER LE RETOUR';
+            }
+        }
+
+        function resetReturnForm() {
+            document.getElementById('returnAmount').value = '';
+            document.getElementById('returnComment').value = '';
+            document.getElementById('returnPhotoPreview').classList.add('hidden');
+            document.getElementById('returnPhotoPlaceholder').classList.remove('hidden');
+            currentReturnPhoto = null;
+        }
+
+        function resetAjoutForm() {
+            document.getElementById('addAmount').value = '';
+            document.getElementById('addCount').value = '';
+            document.getElementById('addComment').value = '';
+            document.getElementById('ajoutPhotoPreview').classList.add('hidden');
+            document.getElementById('ajoutPhotoPlaceholder').classList.remove('hidden');
+            currentAjoutPhoto = null;
+        }
+
+        async function addExtraColis() {
+            const amount = document.getElementById('addAmount').value;
+            const count = document.getElementById('addCount').value || 1;
+            const comment = document.getElementById('addComment').value;
+            if (!amount || !currentAjoutPhoto) return alert("Le Montant ET la photo sont obligatoires.");
+
+            const btn = document.getElementById('addColisBtn');
+            btn.disabled = true;
+            btn.innerHTML = "Traitement...";
+
+            try {
+                const fileName = `colis-${Date.now()}.jpg`;
+                const { error: upErr } = await supabaseClient.storage.from('sorties_photos').upload(fileName, currentAjoutPhoto);
+                if (upErr) throw upErr;
+                const { data: urlData } = supabaseClient.storage.from('sorties_photos').getPublicUrl(fileName);
+
+                const newAjout = {
+                    id: Math.random().toString(36).substring(2),
+                    type: 'ajout',
+                    date: new Date().toISOString(),
+                    nb: Number(count),
+                    montant: Number(amount),
+                    photo_url: urlData.publicUrl,
+                    commentaire: comment || 'Supplément'
+                };
+
+                const updatedCompletions = [...(currentSortie.completions || []), newAjout];
+                const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+                
+                if (!error) {
+                    currentSortie.completions = updatedCompletions;
+                    renderRecap();
+                    resetAjoutForm();
+                    window.togglePanel(null);
+                }
+            } catch (e) { alert("Erreur ajout: " + e.message); } 
+            finally {
+                btn.disabled = false;
+                btn.innerHTML = 'VALIDER L\'AJOUT';
+            }
+        }
+
+        async function validateCloture() {
+            if (!confirm("Confirmez-vous l'encaissement et la clôture définitive ?")) return;
+            const { error } = await supabaseClient.from('sorties').update({ statut: 'Clôturé' }).eq('id', currentSortie.id);
+            if (!error) {
+                document.getElementById('successOverlay').classList.add('show');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

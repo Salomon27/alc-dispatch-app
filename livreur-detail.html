@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Profil Livreur</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .profile-hdr {
+            background: var(--brand-navy);
+            color: white;
+            padding: 2rem 1.5rem 4rem 1.5rem;
+            text-align: center;
+            position: relative;
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+        }
+        .btn-back {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: white;
+            padding: 0.5rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .avatar-lg {
+            width: 72px;
+            height: 72px;
+            background: white;
+            color: var(--brand-navy);
+            border-radius: 20px;
+            margin: 0 auto 1rem auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 900;
+        }
+        .quick-stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: -2rem;
+            padding: 0 1rem;
+            position: relative;
+            z-index: 10;
+        }
+        .q-card {
+            flex: 1;
+            background: white;
+            padding: 1rem;
+            border-radius: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+    </style>
+</head>
+<body style="background: #f8fafc;">
+
+    <header class="profile-hdr">
+        <a href="livreurs.html" class="btn-back"><i data-lucide="arrow-left" style="width: 20px;"></i></a>
+        <div id="p-avatar" class="avatar-lg">--</div>
+        <h2 id="p-nom" style="font-size: 1.4rem; font-weight: 900; margin-bottom: 0.2rem;">Chargement...</h2>
+        <p id="p-zone" style="font-size: 0.8rem; opacity: 0.8; font-weight: 600;">--</p>
+    </header>
+
+    <div class="quick-stats">
+        <div class="q-card">
+            <p style="font-size: 0.65rem; color: var(--slate-400); font-weight: 800; margin-bottom: 0.2rem;">COLIS LIVRÉS</p>
+            <h3 id="stat-colis" style="font-size: 1.3rem; font-weight: 900; color: var(--success);">0</h3>
+        </div>
+        <div class="q-card">
+            <p style="font-size: 0.65rem; color: var(--slate-400); font-weight: 800; margin-bottom: 0.2rem;">TOURNÉES</p>
+            <h3 id="stat-run" style="font-size: 1.3rem; font-weight: 900; color: var(--brand-navy);">0</h3>
+        </div>
+    </div>
+
+    <main style="padding: 1.5rem;">
+        <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <p style="font-size: 0.65rem; color: var(--slate-400); font-weight: 800;">TÉLÉPHONE</p>
+                <p id="p-tel" style="font-size: 0.95rem; font-weight: 800; color: var(--slate-700);">-- -- --</p>
+            </div>
+            <a id="call-btn" href="#" class="btn" style="width: auto; background: var(--success); color: white; padding: 0.5rem 1rem;">
+                APPELER
+            </a>
+        </div>
+
+        <div id="admin-toggles" style="margin-top: 2rem;">
+            <h3 style="font-size: 0.8rem; font-weight: 900; color: var(--slate-500); margin-bottom: 1rem; text-transform: uppercase;">Ajustements</h3>
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label>Nom</label>
+                <input type="text" id="editNom">
+            </div>
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label>Zone</label>
+                <input type="text" id="editZone">
+            </div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label>Téléphone</label>
+                <input type="tel" id="editTel">
+            </div>
+            <button id="updateBtn" class="btn btn-primary" style="margin-bottom: 1rem;">SAUVEGARDER</button>
+            <button id="delBtn" class="btn" style="background: transparent; border: 1px solid var(--danger); color: var(--danger);">SUPPRIMER CE LIVREUR</button>
+        </div>
+    </main>
+
+    <script type="module">
+        import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
+        import { checkAuth } from './js/utils.js';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Lecture ultra-robuste de l'ID depuis l'URL locale classique
+        const urlParams = new URLSearchParams(window.location.search);
+        let livreurId = urlParams.get('id');
+
+        // Si l'ID est dans le localStorage (fallback)
+        if (!livreurId) {
+            livreurId = localStorage.getItem('current_livreur_id');
+        }
+
+        async function init() {
+            const role = checkAuth();
+            lucide.createIcons();
+
+            if (!livreurId) {
+                alert("Identifiant perdu. Retour à la liste.");
+                window.location.href = 'livreurs.html';
+                return;
+            }
+
+            if (role === 'patronne') {
+                document.getElementById('admin-toggles').style.display = 'none';
+            } else {
+                document.getElementById('updateBtn').addEventListener('click', updateProfil);
+                document.getElementById('delBtn').addEventListener('click', deleteProfil);
+            }
+
+            await loadData();
+        }
+
+        async function loadData() {
+            const { data, error } = await supabaseClient.from('livreurs').select('*').eq('id', livreurId).single();
+            if (error || !data) {
+                window.location.href = 'livreurs.html';
+                return;
+            }
+
+            // Affichage UI
+            document.getElementById('p-nom').textContent = data.nom;
+            document.getElementById('p-zone').textContent = data.zone || 'Aucune zone';
+            document.getElementById('p-tel').textContent = data.telephone || '--';
+            document.getElementById('p-avatar').textContent = data.nom.charAt(0).toUpperCase();
+            document.getElementById('call-btn').href = "tel:" + data.telephone;
+
+            // Formulaires Édition
+            document.getElementById('editNom').value = data.nom;
+            document.getElementById('editZone').value = data.zone || '';
+            document.getElementById('editTel').value = data.telephone || '';
+
+            // Stats Faciles
+            const { count: tourCount } = await supabaseClient.from('sorties').select('*', { count: 'exact', head: true }).eq('livreur_id', livreurId);
+            document.getElementById('stat-run').textContent = tourCount || 0;
+            
+            const { data: cols } = await supabaseClient.from('sorties').select('nb_colis').eq('livreur_id', livreurId);
+            let tot = 0;
+            if(cols) cols.forEach(c => tot += Number(c.nb_colis));
+            document.getElementById('stat-colis').textContent = tot;
+        }
+
+        async function updateProfil() {
+            const nom = document.getElementById('editNom').value.trim();
+            const zone = document.getElementById('editZone').value.trim();
+            const tel = document.getElementById('editTel').value.trim();
+            
+            if(!nom) return;
+            const btn = document.getElementById('updateBtn');
+            btn.textContent = "Patientez...";
+            
+            const { error } = await supabaseClient.from('livreurs').update({ nom: nom, zone: zone, telephone: tel }).eq('id', livreurId);
+            if(!error){
+                alert("Modifié !");
+                location.reload();
+            }
+        }
+
+        async function deleteProfil() {
+            if(confirm("SUPPRIMER POUR TOUJOURS ?")) {
+                const { error } = await supabaseClient.from('livreurs').delete().eq('id', livreurId);
+                if(!error) window.location.href = 'livreurs.html';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
