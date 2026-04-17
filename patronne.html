@@ -10,8 +10,33 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- OneSignal Web Push SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "c3645588-b84c-4969-bd4c-9218abdbc448",
+          safari_web_id: "web.onesignal.auto.087eca46-faed-450d-af5b-90e7f525c88c",
+          notifyButton: { enable: true },
+        });
+        OneSignal.login("boss_patronne"); // Tag spécifique pour la Patronne
+      });
+    </script>
     <style>
         body { background: #f8fafc; }
+        
+        /* TOAST NOTIFICATION */
+        #toast-container {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: #10b981; color: white; padding: 1rem 1.5rem;
+            border-radius: 16px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+            display: flex; align-items: center; gap: 1rem; z-index: 5000;
+            transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-weight: 700; font-size: 0.85rem; width: 90%; max-width: 400px;
+        }
+        #toast-container.show { top: 20px; }
         
         /* THEME BOSS ADMINISTRATIF */
         .boss-hero {
@@ -105,6 +130,15 @@
     </style>
 </head>
 <body>
+    <!-- TOAST NOTIFICATION ALERTE CASH -->
+    <div id="toast-container">
+        <i data-lucide="Banknotes" style="width: 24px; color: white;"></i>
+        <div style="flex:1;">
+            <div style="font-size: 0.65rem; opacity:0.9; text-transform:uppercase; letter-spacing: 0.05em;">Entrée d'Argent Validée</div>
+            <div id="toast-msg" style="font-weight: 900; font-size: 0.95rem;">--</div>
+        </div>
+    </div>
+
     <main style="padding: 0; padding-bottom: 6rem;">
         <!-- EN-TETE ADMINISTRATIF -->
         <div class="boss-hero">
@@ -211,8 +245,44 @@
             document.getElementById('periodFilter').addEventListener('change', loadBossStats);
             
             // Lancement asynchrone des analyses
-            loadBossStats();
-            loadMoneyOutside();
+            await loadBossStats();
+            await loadMoneyOutside();
+            listenToCashAlerts();
+        }
+
+        function showCashAlert(message) {
+            const toast = document.getElementById('toast-container');
+            document.getElementById('toast-msg').textContent = message;
+            toast.classList.add('show');
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]); // Caisse enregistreuse effect
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 6000);
+        }
+
+        function listenToCashAlerts() {
+            supabaseClient
+                .channel('boss_alerts')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'sorties'
+                }, async payload => {
+                    // Vérifier si le point vient d'être clôturé
+                    if (payload.new && payload.new.statut === 'Clôturé' && payload.old.statut !== 'Clôturé') {
+                        // Aller chercher le nom du livreur
+                        const { data: livreur } = await supabaseClient.from('livreurs').select('nom').eq('id', payload.new.livreur_id).single();
+                        const nom = livreur ? livreur.nom : 'Un livreur';
+                        
+                        showCashAlert(`Point clôturé pour ${nom} !`);
+                        
+                        // Met à jour la jauge et l'argent restant instantanément
+                        loadBossStats();
+                        loadMoneyOutside();
+                    }
+                })
+                .subscribe();
         }
 
         function getPeriodDates(period) {
