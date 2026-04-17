@@ -250,12 +250,12 @@
                 .on('postgres_changes', { 
                     event: 'UPDATE', 
                     schema: 'public', 
-                    table: 'sorties',
-                    filter: `livreur_id=eq.${livreurId}` 
+                    table: 'sorties'
                 }, payload => {
-                    console.log('Changement détecté !', payload);
-                    if (payload.new && payload.new.statut === 'En Cours') {
-                        showToast("Ta tournée a été modifiée par le gérant (Ajout/Retour) !");
+                    console.log('Changement détecté dans sorties !', payload);
+                    // On filtre en JavaScript pour être sûr à 100%
+                    if (payload.new && payload.new.livreur_id === livreurId) {
+                        showToast("Ta tournée a été modifiée par le gérant !");
                         loadMyColis(livreurId); // Rechargement automatique invisible
                     }
                 })
