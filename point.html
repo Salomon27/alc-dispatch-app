@@ -209,6 +209,28 @@
         let currentReturnPhoto = null;
         let currentAjoutPhoto = null;
 
+        // API ONESIGNAL (Envoi des Notifications Réelles)
+        async function sendPushNotification(targetUserId, title, message) {
+            try {
+                const response = await fetch("https://onesignal.com/api/v1/notifications", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Authorization": "Basic os_v2_app_ynsflcfyjrewtpkmsimkxw6ejarvy4xd63gugvviv4f4gvqya4uvivmy535vhjnrt3jikfxcowpfimkvlvg6c7znlsbwdhhj7herrka"
+                    },
+                    body: JSON.stringify({
+                        app_id: "c3645588-b84c-4969-bd4c-9218abdbc448",
+                        include_aliases: { external_id: [targetUserId] },
+                        target_channel: "push",
+                        headings: { "en": title, "fr": title },
+                        contents: { "en": message, "fr": message }
+                    })
+                });
+                console.log("OneSignal push sent to", targetUserId);
+            } catch (err) { console.error("Push Error", err); }
+        }
+
         // Fonction d'UI pour cacher/montrer les panneaux
         window.togglePanel = function(panelId) {
             document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
@@ -581,6 +603,9 @@
                     renderRecap();
                     resetAjoutForm();
                     window.togglePanel(null);
+                    
+                    // ONESIGNAL PUSH AU LIVREUR
+                    sendPushNotification(currentSortie.livreur.id || currentSortie.livreur_id, "🚨 Nouvelle Mission", "Le gérant a ajouté un colis à votre tournée !");
                 }
             } catch (e) { alert("Erreur ajout: " + e.message); } 
             finally {
@@ -594,6 +619,11 @@
             const { error } = await supabaseClient.from('sorties').update({ statut: 'Clôturé' }).eq('id', currentSortie.id);
             if (!error) {
                 document.getElementById('successOverlay').classList.add('show');
+                
+                // ONESIGNAL PUSH A LA PATRONNE
+                const nomLivreur = currentSortie.livreur && currentSortie.livreur.nom ? currentSortie.livreur.nom : "Un livreur";
+                sendPushNotification("boss_patronne", "💸 Nouveau Versement", `Le point a été clôturé pour ${nomLivreur} !`);
+                
                 setTimeout(() => window.location.reload(), 2000);
             }
         }
