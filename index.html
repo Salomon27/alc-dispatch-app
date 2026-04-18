@@ -11,13 +11,14 @@
     <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        /*
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js');
+                const fullBasePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+                navigator.serviceWorker.register(fullBasePath + 'sw.js', { scope: fullBasePath })
+                    .then(() => console.log("Service Worker enregistré (PWA + Push)"))
+                    .catch(err => console.error("Erreur SW:", err));
             });
         }
-        */
     </script>
 </head>
 <body>
