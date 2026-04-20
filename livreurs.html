@@ -102,9 +102,10 @@
         import { checkAuth, getSession } from './js/utils.js';
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let role;
 
         async function init() {
-            const role = checkAuth();
+            role = checkAuth();
             lucide.createIcons();
             loadLivreurs();
 
@@ -159,6 +160,11 @@
                                         <i data-lucide="phone" style="width: 16px;"></i>
                                     </a>
                                 </object>
+                                ${role !== 'patronne' ? `
+                                <div class="action-btn" style="background: #fee2e2; color: #ef4444;" onclick="event.stopPropagation(); deleteLivreur('${l.id}', '${l.nom.replace(/'/g, "\\'")}', ${isActive})">
+                                    <i data-lucide="trash-2" style="width: 16px;"></i>
+                                </div>
+                                ` : ''}
                                 <div class="action-btn" style="color: var(--slate-300);">
                                     <i data-lucide="chevron-right" style="width: 20px;"></i>
                                 </div>
@@ -172,6 +178,35 @@
             }
             lucide.createIcons();
         }
+
+        window.deleteLivreur = async (id, name, isActive) => {
+            if (isActive) {
+                alert(`Impossible de supprimer ${name} car il est actuellement en tournée.`);
+                return;
+            }
+
+            if (!confirm(`Êtes-vous sûr de vouloir supprimer ${name} ? Cette action supprimera tous ses accès.`)) {
+                return;
+            }
+
+            try {
+                // On tente de supprimer. Si des données sont liées (historique), la FK pourrait bloquer.
+                const { error } = await supabaseClient.from('livreurs').delete().eq('id', id);
+
+                if (error) {
+                    if (error.code === '23503') {
+                        alert("Ce livreur a un historique de livraisons (sorties). Pour garder l'intégrité des rapports, vous ne pouvez pas le supprimer définitivement.");
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    loadLivreurs();
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la suppression : " + err.message);
+            }
+        };
 
         async function saveLivreur() {
             const nom = document.getElementById('newNom').value.trim();
