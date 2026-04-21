@@ -13,22 +13,7 @@
     
     <!-- OneSignal Web Push SDK -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-        await OneSignal.init({
-          appId: "c3645588-b84c-4969-bd4c-9218abdbc448",
-          safari_web_id: "web.onesignal.auto.087eca46-faed-450d-af5b-90e7f525c88c",
-          serviceWorkerPath: basePath + "sw.js",
-          serviceWorkerParam: { scope: basePath }
-        });
-        
-        OneSignal.Slidedown.promptPush();
-        
-        OneSignal.login("boss_patronne"); // Tag spécifique pour la Patronne
-      });
-    </script>
+    <script src="js/onesignal-init.js" defer></script>
     <style>
         body { background: #f8fafc; }
         
@@ -270,22 +255,22 @@
             supabaseClient
                 .channel('boss_alerts')
                 .on('postgres_changes', { 
-                    event: 'UPDATE', 
+                    event: '*', // On écoute TOUT : INSERT, UPDATE, DELETE
                     schema: 'public', 
                     table: 'sorties'
                 }, async payload => {
-                    // Vérifier si le point vient d'être clôturé
-                    if (payload.new && payload.new.statut === 'Clôturé' && payload.old.statut !== 'Clôturé') {
-                        // Aller chercher le nom du livreur
+                    console.log("Real-time update:", payload.eventType);
+                    
+                    // Si c'est une clôture, on affiche l'alerte
+                    if (payload.eventType === 'UPDATE' && payload.new.statut === 'Clôturé' && payload.old.statut !== 'Clôturé') {
                         const { data: livreur } = await supabaseClient.from('livreurs').select('nom').eq('id', payload.new.livreur_id).single();
                         const nom = livreur ? livreur.nom : 'Un livreur';
-                        
                         showCashAlert(`Point clôturé pour ${nom} !`);
-                        
-                        // Met à jour la jauge et l'argent restant instantanément
-                        loadBossStats();
-                        loadMoneyOutside();
                     }
+
+                    // Dans tous les cas (Suppression, Ajout, Modif), on rafraîchit les compteurs
+                    loadBossStats();
+                    loadMoneyOutside();
                 })
                 .subscribe();
         }
