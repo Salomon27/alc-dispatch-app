@@ -67,6 +67,7 @@
     <header class="profile-hdr">
         <a href="livreurs.html" class="btn-back"><i data-lucide="arrow-left" style="width: 20px;"></i></a>
         <div id="p-avatar" class="avatar-lg">--</div>
+        <div id="p-status-badge" style="margin-bottom: 0.5rem; display: inline-block;"></div>
         <h2 id="p-nom" style="font-size: 1.4rem; font-weight: 900; margin-bottom: 0.2rem;">Chargement...</h2>
         <p id="p-zone" style="font-size: 0.8rem; opacity: 0.8; font-weight: 600;">--</p>
     </header>
@@ -97,19 +98,25 @@
             <h3 style="font-size: 0.8rem; font-weight: 900; color: var(--slate-500); margin-bottom: 1rem; text-transform: uppercase;">Ajustements</h3>
             
             <div class="form-group" style="margin-bottom: 0.75rem;">
-                <label>Nom</label>
+                <label>Nom Complet</label>
                 <input type="text" id="editNom">
             </div>
-            <div class="form-group" style="margin-bottom: 0.75rem;">
-                <label>Zone</label>
-                <input type="text" id="editZone">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                <div class="form-group">
+                    <label>Zone Principal</label>
+                    <input type="text" id="editZone">
+                </div>
+                <div class="form-group">
+                    <label>CODE PIN (4 chiffres)</label>
+                    <input type="number" id="editPin" pattern="[0-9]*" inputmode="numeric">
+                </div>
             </div>
             <div class="form-group" style="margin-bottom: 1rem;">
-                <label>Téléphone</label>
+                <label>Numéro de Téléphone</label>
                 <input type="tel" id="editTel">
             </div>
-            <button id="updateBtn" class="btn btn-primary" style="margin-bottom: 1rem;">SAUVEGARDER</button>
-            <button id="delBtn" class="btn" style="background: transparent; border: 1px solid var(--danger); color: var(--danger);">SUPPRIMER CE LIVREUR</button>
+            <button id="updateBtn" class="btn btn-primary" style="margin-bottom: 1rem;">SAUVEGARDER LES CHANGEMENTS</button>
+            <button id="delBtn" class="btn" style="background: #fef2f2; border: 1px solid #fee2e2; color: var(--danger); font-size: 0.75rem;">SUPPRIMER DÉFINITIVEMENT</button>
         </div>
     </main>
 
@@ -154,6 +161,18 @@
                 return;
             }
 
+            // Détection du statut réel
+            const today = new Date().toISOString().split('T')[0];
+            const { data: tourActive } = await supabaseClient
+                .from('sorties')
+                .select('id')
+                .eq('livreur_id', livreurId)
+                .eq('statut', 'En Cours')
+                .gte('created_at', `${today}T00:00:00Z`)
+                .maybeSingle();
+            
+            const isActive = !!tourActive;
+
             // Affichage UI
             document.getElementById('p-nom').textContent = data.nom;
             document.getElementById('p-zone').textContent = data.zone || 'Aucune zone';
@@ -161,10 +180,21 @@
             document.getElementById('p-avatar').textContent = data.nom.charAt(0).toUpperCase();
             document.getElementById('call-btn').href = "tel:" + data.telephone;
 
+            const badgeElem = document.getElementById('p-status-badge');
+            if (isActive) {
+                badgeElem.innerHTML = '<span class="status-badge status-active">EN TOURNÉE</span>';
+            } else {
+                badgeElem.innerHTML = '<span class="status-badge status-idle">LIBRE</span>';
+            }
+
+            // Variable globale pour la vérification à la suppression
+            window.isLivreurInTour = isActive;
+
             // Formulaires Édition
             document.getElementById('editNom').value = data.nom;
             document.getElementById('editZone').value = data.zone || '';
             document.getElementById('editTel').value = data.telephone || '';
+            document.getElementById('editPin').value = data.code_pin || '';
 
             // Stats Faciles
             const { count: tourCount } = await supabaseClient.from('sorties').select('*', { count: 'exact', head: true }).eq('livreur_id', livreurId);
@@ -180,22 +210,53 @@
             const nom = document.getElementById('editNom').value.trim();
             const zone = document.getElementById('editZone').value.trim();
             const tel = document.getElementById('editTel').value.trim();
+            const pin = document.getElementById('editPin').value.trim();
             
             if(!nom) return;
+            if(pin && pin.length !== 4) {
+                alert("Le code PIN doit comporter 4 chiffres.");
+                return;
+            }
+
             const btn = document.getElementById('updateBtn');
+            const originalText = btn.textContent;
             btn.textContent = "Patientez...";
+            btn.disabled = true;
             
-            const { error } = await supabaseClient.from('livreurs').update({ nom: nom, zone: zone, telephone: tel }).eq('id', livreurId);
+            const { error } = await supabaseClient.from('livreurs').update({ 
+                nom: nom, 
+                zone: zone, 
+                telephone: tel,
+                code_pin: pin 
+            }).eq('id', livreurId);
+
             if(!error){
-                alert("Modifié !");
+                alert("Profil Modifié avec succès !");
                 location.reload();
+            } else {
+                alert("Erreur : " + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
             }
         }
 
         async function deleteProfil() {
-            if(confirm("SUPPRIMER POUR TOUJOURS ?")) {
+            if (window.isLivreurInTour) {
+                alert("Action impossible : Ce livreur est actuellement en tournée. Vous ne pouvez pas le supprimer tant qu'il n'a pas fini son point.");
+                return;
+            }
+
+            if(confirm("Confirmez-vous la suppression DEFINITIVE de ce livreur et de tous ses accès ?")) {
                 const { error } = await supabaseClient.from('livreurs').delete().eq('id', livreurId);
-                if(!error) window.location.href = 'livreurs.html';
+                if(!error) {
+                    window.location.href = 'livreurs.html';
+                } else {
+                    if (error.code === '23503') {
+                        alert("Impossible de supprimer ce livreur car il possède un historique de livraisons. Préférer simplement changer son code PIN pour bloquer ses accès.");
+                    } else {
+                        alert("Erreur de suppression : " + error.message);
+                    }
+                }
             }
         }
 
