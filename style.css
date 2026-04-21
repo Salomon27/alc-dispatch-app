@@ -603,6 +603,35 @@ body.has-sidebar-menu .fixed-top-area {
     transition: all 0.3s ease;
 }
 
+.refresh-app-btn {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid var(--slate-200);
+    color: var(--brand-navy);
+    position: fixed;
+    top: 15px;
+    left: 62px;
+    z-index: 5000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.refresh-app-btn:active {
+    transform: scale(0.9);
+    background: var(--slate-100);
+}
+
+.refresh-app-btn i {
+    width: 18px;
+    height: 18px;
+}
+
 .sidebar-overlay.active {
     opacity: 1;
     visibility: visible;

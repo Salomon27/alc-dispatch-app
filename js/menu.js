@@ -34,8 +34,9 @@ export function initMenu() {
     document.body.appendChild(overlay);
     document.body.appendChild(sidebar);
 
-    // 3. Injection du bouton Hamburger dans le header s'il n'existe pas
+    // 3. Injection des boutons Hamburger et Refresh s'ils n'existent pas
     injectBurgerButton();
+    injectRefreshButton();
 
     // 4. Events
     overlay.onclick = toggleMenu;
@@ -94,6 +95,28 @@ function injectBurgerButton() {
     burgerBtn.onclick = toggleMenu;
     
     document.body.appendChild(burgerBtn);
+}
+
+function injectRefreshButton() {
+    if (document.querySelector('.refresh-app-btn')) return;
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'refresh-app-btn';
+    refreshBtn.id = 'refreshApp';
+    refreshBtn.title = 'Actualiser la page';
+    refreshBtn.innerHTML = '<i data-lucide="refresh-cw"></i>';
+    
+    refreshBtn.onclick = () => {
+        const icon = refreshBtn.querySelector('i');
+        if (icon) icon.classList.add('spin');
+        
+        // Petit délai pour l'effet visuel avant de recharger
+        setTimeout(() => {
+            window.location.reload();
+        }, 300);
+    };
+    
+    document.body.appendChild(refreshBtn);
 }
 
 // Auto-init si on est importé

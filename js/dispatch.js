@@ -5,6 +5,7 @@ import { compressImage, getSession, checkAuth, formatFCFA, logout } from './util
 let supabaseClient = null;
 let items = [];
 let currentItemPhoto = null;
+let livreursData = []; // Stockage local des zones par livreur
 
 // --- DOM ELEMENTS ---
 const elements = {
@@ -45,8 +46,9 @@ async function init() {
 }
 
 async function loadLivreurs() {
-    const { data, error } = await supabaseClient.from('livreurs').select('id, nom').order('nom');
+    const { data, error } = await supabaseClient.from('livreurs').select('id, nom, zone').order('nom');
     if (data) {
+        livreursData = data;
         data.forEach(l => {
             const opt = document.createElement('option');
             opt.value = l.id;
@@ -71,6 +73,15 @@ function setupEventListeners() {
     elements.addItemBtn.addEventListener('click', addItem);
     elements.dispatchForm.addEventListener('submit', handleSubmit);
     elements.logoutBtn.addEventListener('click', logout);
+
+    // Auto-remplissage de la zone
+    elements.livreurSelect.addEventListener('change', (e) => {
+        const livreurId = e.target.value;
+        const selected = livreursData.find(l => l.id === livreurId);
+        if (selected && selected.zone) {
+            elements.zoneInput.value = selected.zone;
+        }
+    });
 }
 
 function addItem() {
