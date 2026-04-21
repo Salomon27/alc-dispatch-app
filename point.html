@@ -421,18 +421,16 @@
         }
 
         window.deleteIndividualColis = async function(photoUrl) {
-            if(!confirm("Êtes-vous sûr de vouloir supprimer définitivement ce colis du bordereau ? Le montant sera déduit.")) return;
+            if(!confirm("Êtes-vous sûr de vouloir supprimer ce colis ? Cette action est irréversible.")) return;
             
             let changed = false;
             let isCompletionFullDelete = false;
             let idToDelete = null;
-            let deletedItem = null; // Pour l'audit
             
             // 1. Chercher dans le départ initial
             if (currentSortie.details_colis && !changed) {
                 const target = currentSortie.details_colis.find(c => (c.photo_url === photoUrl || c.photo === photoUrl));
                 if (target) {
-                    deletedItem = { ...target, origin: 'départ_initial' };
                     const deduction = Number(target.valeur || 0);
                     currentSortie.details_colis = currentSortie.details_colis.filter(c => (c.photo_url !== photoUrl && c.photo !== photoUrl));
                     currentSortie.montant_total = Math.max(0, Number(currentSortie.montant_total) - deduction);
@@ -447,7 +445,6 @@
                     if (comp.details) {
                         const target = comp.details.find(c => (c.photo_url === photoUrl || c.photo === photoUrl));
                         if (target) {
-                            deletedItem = { ...target, origin: 'ajout_' + comp.id };
                             const deduction = Number(target.valeur || 0);
                             comp.details = comp.details.filter(c => (c.photo_url !== photoUrl && c.photo !== photoUrl));
                             comp.montant = Math.max(0, Number(comp.montant) - deduction);
@@ -456,7 +453,6 @@
                             break;
                         }
                     } else if (comp.photo_url === photoUrl) {
-                        deletedItem = { photo_url: comp.photo_url, valeur: comp.montant, origin: 'completion_simple' };
                         isCompletionFullDelete = true;
                         idToDelete = comp.id;
                         changed = true;
@@ -468,20 +464,8 @@
             if (changed) {
                 document.getElementById('galleryTitle').textContent = "Suppression en cours...";
 
-                // Enregistrement de la trace dans l'audit
-                const auditEntry = {
-                    id: Math.random().toString(36).substring(2),
-                    type: 'suppression_colis',
-                    date: new Date().toISOString(),
-                    supprime_par: localStorage.getItem('alc_name') || 'Gérant',
-                    montant_deduit: deletedItem ? Number(deletedItem.valeur || 0) : 0,
-                    photo_url: photoUrl,
-                    commentaire: deletedItem ? (deletedItem.commentaire || '') : ''
-                };
-                const deletions = [...(currentSortie.deletions || []), auditEntry];
-
-                let updates = { deletions };
-
+                // Construction de la mise à jour propre (sans aucune trace d'audit)
+                let updates = {};
                 if (isCompletionFullDelete) {
                     currentSortie.completions = currentSortie.completions.filter(c => c.id !== idToDelete);
                     updates.completions = currentSortie.completions;
@@ -492,36 +476,27 @@
                     updates.nb_colis = currentSortie.nb_colis;
                 }
 
-                // --- CORRECTION LOGIQUE ---
-                // Si tous les colis ont été supprimés, on annule la sortie
-                // pour que le livreur ne soit plus affiché "EN TOURNÉE"
-                const totalColisRestants = Number(currentSortie.nb_colis || 0)
+                // Si 0 colis restants après suppression -> annuler la sortie
+                // pour que le livreur ne reste pas bloqué "EN TOURNÉE"
+                const nbRestants = Number(updates.nb_colis || currentSortie.nb_colis || 0)
                     + (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb || 0), 0);
 
-                if (totalColisRestants <= 0 && !isCompletionFullDelete) {
-                    // Cas où le départ initial tombe à 0
-                    const totalRestantsGlobal = Number(updates.nb_colis || 0)
-                        + (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb || 0), 0);
-                    if (totalRestantsGlobal <= 0) {
-                        updates.statut = 'Annulé';
-                        updates.commentaire_annulation = 'Annulé automatiquement : tous les colis ont été supprimés.';
-                    }
+                if (nbRestants <= 0) {
+                    updates.statut = 'Annulé';
                 }
 
                 const { error } = await supabaseClient.from('sorties').update(updates).eq('id', currentSortie.id);
                 
                 if (!error) {
-                    currentSortie.deletions = deletions;
                     document.getElementById('photoGallery').style.display = 'none';
-                    
                     if (updates.statut === 'Annulé') {
-                        alert("Tournée annulée automatiquement car tous les colis ont été supprimés. Le livreur est de nouveau libre.");
+                        alert("Tous les colis ont été supprimés. Le livreur est de nouveau libre.");
                         window.location.reload();
                     } else {
                         renderRecap();
                     }
                 } else {
-                    alert("Erreur système lors de la suppression: " + error.message);
+                    alert("Erreur lors de la suppression : " + error.message);
                     document.getElementById('galleryTitle').textContent = "Photos";
                 }
             }
