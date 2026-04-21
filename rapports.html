@@ -143,8 +143,8 @@
             
             const filtered = allData.filter(s => {
                 const matchesFilter = currentFilter === 'all' || s.statut === currentFilter;
-                const matchesSearch = s.livreur.nom.toLowerCase().includes(q) || 
-                                     s.zone_libre.toLowerCase().includes(q);
+                const matchesSearch = (s.livreur?.nom || '').toLowerCase().includes(q) || 
+                                     (s.zone_libre || '').toLowerCase().includes(q);
                 
                 let matchesDate = true;
                 if (d) {

@@ -287,7 +287,11 @@
         }
 
         async function loadActiveSorties() {
-            const { data, error } = await supabaseClient.from('sorties').select('id, livreur:livreurs(nom)').eq('statut', 'En Cours');
+            const { data, error } = await supabaseClient
+                .from('sorties')
+                .select('id, nb_colis, livreur:livreurs(nom)')
+                .eq('statut', 'En Cours')
+                .gt('nb_colis', 0); // On exclut les sorties sans colis (suppression totale)
             if (error) return;
             const select = document.getElementById('activeLivreurSelect');
             if (data) {
@@ -323,9 +327,17 @@
 
             const list = document.getElementById('eventsList');
             list.innerHTML = '';
-            addEventToUI(list, 'Départ de base', initial, initialColisCount, currentSortie.photo_url, 'start', currentSortie.created_at, currentSortie.details_colis || [{photo_url: currentSortie.photo_url}], null);
+
+            // On n'affiche le départ de base QUE s'il reste des colis
+            // Si tous ont été supprimés (erreur de saisie), on n'affiche rien
+            if (initialColisCount > 0) {
+                addEventToUI(list, 'Départ de base', initial, initialColisCount, currentSortie.photo_url, 'start', currentSortie.created_at, currentSortie.details_colis || [{photo_url: currentSortie.photo_url}], null);
+            }
+
             if (currentSortie.completions) {
                 currentSortie.completions.forEach(c => {
+                    // On n'affiche pas les ajouts dont tous les colis ont été supprimés
+                    if (c.type === 'ajout' && Number(c.nb || 0) <= 0) return;
                     const photos = c.details || [{ photo_url: c.photo_url, commentaire: c.commentaire, valeur: c.montant }];
                     addEventToUI(list, c.type === 'ajout' ? 'Oubli Ajouté' : 'Retour Client', c.montant, c.nb, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
                 });
@@ -464,7 +476,7 @@
             if (changed) {
                 document.getElementById('galleryTitle').textContent = "Suppression en cours...";
 
-                // Construction de la mise à jour propre (sans aucune trace d'audit)
+                // Mise à jour propre sans trace d'audit
                 let updates = {};
                 if (isCompletionFullDelete) {
                     currentSortie.completions = currentSortie.completions.filter(c => c.id !== idToDelete);
@@ -476,28 +488,31 @@
                     updates.nb_colis = currentSortie.nb_colis;
                 }
 
-                // Si 0 colis restants après suppression -> annuler la sortie
-                // pour que le livreur ne reste pas bloqué "EN TOURNÉE"
-                const nbRestants = Number(updates.nb_colis || currentSortie.nb_colis || 0)
+                // Calcul du total de colis restants après correction
+                const nbRestants = Number(updates.nb_colis ?? currentSortie.nb_colis ?? 0)
                     + (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb || 0), 0);
 
                 if (nbRestants <= 0) {
-                    updates.statut = 'Annulé';
-                }
-
-                const { error } = await supabaseClient.from('sorties').update(updates).eq('id', currentSortie.id);
-                
-                if (!error) {
-                    document.getElementById('photoGallery').style.display = 'none';
-                    if (updates.statut === 'Annulé') {
-                        alert("Tous les colis ont été supprimés. Le livreur est de nouveau libre.");
-                        window.location.reload();
+                    // Tous les colis étaient des erreurs de saisie
+                    // On SUPPRIME la sortie complètement de la base de données
+                    const { error: delErr } = await supabaseClient.from('sorties').delete().eq('id', currentSortie.id);
+                    if (!delErr) {
+                        alert("Tous les colis ont été supprimés. La tournee a été effacée.");
+                        window.location.href = 'point.html'; // Retour propre, sans trace
                     } else {
-                        renderRecap();
+                        alert("Erreur lors de la suppression : " + delErr.message);
+                        document.getElementById('galleryTitle').textContent = "Photos";
                     }
                 } else {
-                    alert("Erreur lors de la suppression : " + error.message);
-                    document.getElementById('galleryTitle').textContent = "Photos";
+                    // Il reste des colis valides, on met juste à jour
+                    const { error } = await supabaseClient.from('sorties').update(updates).eq('id', currentSortie.id);
+                    if (!error) {
+                        document.getElementById('photoGallery').style.display = 'none';
+                        renderRecap();
+                    } else {
+                        alert("Erreur lors de la suppression : " + error.message);
+                        document.getElementById('galleryTitle').textContent = "Photos";
+                    }
                 }
             }
         }
