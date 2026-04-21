@@ -463,12 +463,21 @@ main {
     transition: all 0.2s;
 }
 
-/* Éviter l'overlap avec les titres quand le menu est présent */
+/* Décaler SEULEMENT le titre ou le premier élément, pas tout le bloc */
+body.has-sidebar-menu .page-header h2, 
+body.has-sidebar-menu .boss-hero h2,
+body.has-sidebar-menu .header-livreur h2,
+body.has-sidebar-menu .fixed-top-area h2,
+body.has-sidebar-menu .profile-hdr h2 {
+    padding-left: 45px !important;
+}
+
+/* Le reste du contenu reprend sa place normale */
 body.has-sidebar-menu .page-header, 
 body.has-sidebar-menu .boss-hero,
 body.has-sidebar-menu .header-livreur,
 body.has-sidebar-menu .fixed-top-area {
-    padding-left: 55px !important;
+    padding-left: 1rem !important; /* On remet le padding standard */
 }
 
 .burger-menu-btn:active {
