@@ -14,7 +14,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-                navigator.serviceWorker.register(basePath + 'sw.js', { scope: basePath })
+                const fullPath = window.location.origin + basePath;
+                navigator.serviceWorker.register(fullPath + 'sw.js', { scope: basePath })
                     .then(() => console.log("Service Worker enregistré (PWA + Push)"))
                     .catch(err => console.error("Erreur SW:", err));
             });
