@@ -70,9 +70,17 @@ async function loadDashboardStats() {
     let monthlyTotal = 0;
     if (periodData) {
         periodData.forEach(s => {
-            const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
-            const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-            monthlyTotal += (Number(s.montant_total) + ajouts - retours);
+            // Pour les anciennes sorties, on doit calculer. 
+            // Pour les nouvelles (après ma correction de clôture), s.montant_total est déjà le NET.
+            // On vérifie si la sortie a été clôturée AVANT aujourd'hui 12:00 (moment de ma correction)
+            // Ou plus simple : si s.cloture_at existe, on fait confiance au montant_total.
+            if (s.cloture_at) {
+                monthlyTotal += Number(s.montant_total);
+            } else {
+                const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+                monthlyTotal += (Number(s.montant_total) + ajouts - retours);
+            }
         });
     }
     document.getElementById('statMonthlyRevenue').textContent = formatFCFA(monthlyTotal);
@@ -104,8 +112,8 @@ async function loadDashboardStats() {
         let totalColis = 0;
         let totalRetours = 0;
         allSorties.forEach(s => {
-            const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb), 0);
-            const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.nb || 1), 0);
+            const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
+            const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.nb || 0), 0);
             totalColis += (Number(s.nb_colis) + ajouts);
             totalRetours += retours;
         });
@@ -133,21 +141,22 @@ function renderRecentActivity(data) {
         data.forEach(s => {
             const div = document.createElement('div');
             div.className = 'activity-item';
+            div.style.cssText = 'display:flex; align-items:center; background:white; padding:0.75rem; border-radius:12px; margin-bottom:0.5rem; border:1px solid var(--slate-100);';
             div.innerHTML = `
-                <img src="${s.photo_url}" class="preview-img">
-                <div class="activity-info">
-                    <h4>${s.livreur.nom}</h4>
-                    <p>${new Date(s.created_at).toLocaleDateString()} • ${s.zone_libre}</p>
+                <img src="${s.photo_url}" style="width:40px; height:40px; border-radius:8px; object-fit:cover;">
+                <div class="activity-info" style="flex:1; margin-left:0.75rem;">
+                    <h4 style="font-size:0.8rem; font-weight:800; margin:0;">${s.livreur?.nom || 'Inconnu'}</h4>
+                    <p style="font-size:0.6rem; color:var(--slate-500); margin:0;">${s.zone_libre} • ${new Date(s.created_at).toLocaleDateString()}</p>
                 </div>
                 <div style="text-align: right;">
-                    <div class="badge" style="background: ${s.statut === 'En Cours' ? 'var(--slate-100)' : '#dcfce7'}">${s.statut}</div>
-                    <p style="font-weight: 800; font-size: 0.8rem; margin-top: 0.25rem;">${formatFCFA(s.montant_total)}</p>
+                    <span class="badge" style="font-size:0.5rem; padding:0.1rem 0.4rem; background:${s.statut === 'En Cours' ? '#eff6ff' : '#ecfdf5'}; color:${s.statut === 'En Cours' ? '#1e40af' : '#047857'};">${s.statut}</span>
+                    <p style="font-weight: 900; font-size: 0.75rem; margin-top: 0.1rem; color:var(--brand-navy);">${formatFCFA(s.montant_total)}</p>
                 </div>
             `;
             list.appendChild(div);
         });
     } else {
-        list.innerHTML = '<p style="text-align: center; color: var(--slate-400);">Aucune activité.</p>';
+        list.innerHTML = '<p style="text-align: center; color: var(--slate-400); padding: 1rem;">Aucune activité.</p>';
     }
     lucide.createIcons();
 }

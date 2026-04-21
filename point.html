@@ -663,11 +663,31 @@
 
         async function validateCloture() {
             if (!confirm("Confirmez-vous l'encaissement et la clôture définitive ?")) return;
-            const { error } = await supabaseClient.from('sorties').update({ statut: 'Clôturé' }).eq('id', currentSortie.id);
+            
+            // CALCUL DU BILAN FINAL RÉEL
+            const initial = Number(currentSortie.montant_total || 0);
+            const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
+            const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
+            
+            const montantFinalNet = (initial + ajouts) - retours;
+            
+            const initialNb = Number(currentSortie.nb_colis || 0);
+            const ajoutsNb = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);
+            // On ne déduit pas les retours du nb_colis car ils ont été "traités" / présentés
+            const nbColisTotal = initialNb + ajoutsNb;
+
+            const { error } = await supabaseClient.from('sorties').update({ 
+                statut: 'Clôturé',
+                montant_total: montantFinalNet,
+                nb_colis: nbColisTotal,
+                cloture_at: new Date().toISOString()
+            }).eq('id', currentSortie.id);
+
             if (!error) {
                 document.getElementById('successOverlay').classList.add('show');
-                
                 setTimeout(() => window.location.reload(), 2000);
+            } else {
+                alert("Erreur lors de la clôture : " + error.message);
             }
         }
         init();

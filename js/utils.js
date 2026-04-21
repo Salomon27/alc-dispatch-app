@@ -162,4 +162,32 @@ export function injectNav(role) {
         `;
     }
     if (window.lucide) lucide.createIcons();
+    if (navigator.vibrate) navigator.vibrate(50);
+}
+
+// --- APP MAINTENANCE ---
+export const APP_VERSION = "2.1.0";
+
+export async function forceAppUpdate() {
+    if (!confirm("Une mise à jour va être appliquée. L'application va redémarrer. Continuer ?")) return;
+    
+    // 1. Unregister Service Workers
+    if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+            await registration.unregister();
+        }
+    }
+    
+    // 2. Clear all Caches
+    if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key)));
+    }
+    
+    // 3. Clear Local Storage (optionnel, on garde les sessions si possible, mais ici on veut du propre)
+    // localStorage.clear(); 
+    
+    // 4. Reload hard
+    window.location.reload(true);
 }

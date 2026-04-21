@@ -49,6 +49,11 @@
         </div>
     </main>
 
+    <div class="force-update-btn" onclick="updateApp()">
+        <i data-lucide="refresh-cw" style="width: 14px;"></i>
+        <span>Vérifier les mises à jour</span>
+    </div>
+
     <script type="module">
         import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
         import { checkAuth, setSession, redirectByRole } from './js/utils.js';
@@ -145,6 +150,26 @@
                 pinInput.focus();
                 if (navigator.vibrate) navigator.vibrate(200);
             }
+        }
+
+        window.updateApp = async function() {
+            if (!confirm("Toutes les données seront rafraîchies. Continuer ?")) return;
+            
+            const btn = document.querySelector('.force-update-btn');
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;"></i> MISE À JOUR...';
+            lucide.createIcons();
+
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                }
+            }
+            
+            const cacheKeys = await caches.keys();
+            await Promise.all(cacheKeys.map(key => caches.delete(key)));
+            
+            window.location.reload(true);
         }
 
         // Keep focus on input

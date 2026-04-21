@@ -102,8 +102,18 @@
         function renderDossier(s) {
             const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
             const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-            const brut = Number(s.montant_total) + ajouts;
-            const net = brut - retours;
+            
+            let brut, net;
+            
+            if (s.cloture_at) {
+                // Nouvelle méthode : le montant_total en base est déjà le NET
+                net = Number(s.montant_total);
+                brut = net + retours;
+            } else {
+                // Ancienne méthode : montant_total est le brut initial
+                brut = Number(s.montant_total) + ajouts;
+                net = brut - retours;
+            }
 
             document.getElementById('livreurNom').textContent = s.livreur.nom;
             document.getElementById('brutAmount').textContent = formatFCFA(brut);
@@ -175,14 +185,21 @@
         }
 
         function shareDossier() {
-            const text = `📦 *RECU ALC - ${currentSortie.livreur.nom}*\n` +
-                         `📅 Date: ${new Date(currentSortie.created_at).toLocaleDateString()}\n` +
-                         `📍 Zone: ${currentSortie.zone_libre}\n` +
+            const dateStr = new Date(currentSortie.created_at).toLocaleDateString('fr-FR');
+            const netStr = document.getElementById('netAmount').textContent;
+            const text = `📦 *ALC DISPATCH - BORDEREAU*\n` +
                          `---------------------------\n` +
-                         `✅ Net encaissé: *${document.getElementById('netAmount').textContent}*\n` +
+                         `👤 *Livreur:* ${currentSortie.livreur.nom}\n` +
+                         `📅 *Date:* ${dateStr}\n` +
+                         `📍 *Zone:* ${currentSortie.zone_libre}\n` +
+                         `📦 *Colis:* ${currentSortie.nb_colis}\n` +
                          `---------------------------\n` +
-                         `_Généré par ALC App_`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+                         `💰 *NET À ENCAISSER:* *${netStr}*\n` +
+                         `---------------------------\n` +
+                         `_Généré numériquement par ALC Connect_`;
+            
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(waUrl, '_blank');
         }
 
         init();

@@ -165,30 +165,42 @@
             
             if (data.length > 0) {
                 data.forEach(s => {
+                    const hasReturns = (s.completions || []).some(c => c.type === 'retour');
                     const item = document.createElement('a');
                     item.href = `dossier-detail.html?id=${s.id}`;
                     item.className = 'activity-item';
-                    item.style.textDecoration = 'none';
+                    item.style.cssText = 'text-decoration:none; display:flex; align-items:center; background:white; padding:1rem; border-radius:16px; margin-bottom:0.75rem; border:1px solid var(--slate-100); transition:all 0.2s;';
+                    
                     item.innerHTML = `
-                        <div style="position: relative;">
-                            <img src="${s.photo_url}" class="preview-img" style="border: 2px solid ${s.statut === 'En Cours' ? 'var(--brand-blue)' : 'var(--success)'}">
-                            ${s.statut === 'En Cours' ? '<div style="position: absolute; top: -5px; right: -5px; width: 10px; height: 100%; border-radius: 50%;"></div>' : ''}
+                        <div style="position: relative; flex-shrink:0;">
+                            <img src="${s.photo_url}" class="preview-img" style="border: 2px solid ${s.statut === 'En Cours' ? 'var(--brand-blue)' : 'var(--success)'}; width:50px; height:50px; border-radius:12px; object-fit:cover;">
+                            ${hasReturns ? '<div title="Litiges/Retours" style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: var(--danger); border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center;"><i data-lucide="alert-circle" style="width:8px; color:white;"></i></div>' : ''}
                         </div>
-                        <div class="activity-info" style="flex: 1;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                <p style="font-size: 0.6rem; color: var(--slate-400); font-weight: 800;">${new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short'})}</p>
-                                <span class="badge" style="background: ${s.statut === 'En Cours' ? 'var(--slate-100)' : '#dcfce7'}; color: ${s.statut === 'En Cours' ? 'var(--brand-navy)' : 'var(--success)'}">${s.statut}</span>
+                        <div class="activity-info" style="flex: 1; margin-left: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                <p style="font-size: 0.6rem; color: var(--slate-400); font-weight: 800; text-transform: uppercase;">
+                                    ${new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'})}
+                                </p>
+                                <span class="badge" style="
+                                    background: ${s.statut === 'En Cours' ? '#eff6ff' : '#ecfdf5'}; 
+                                    color: ${s.statut === 'En Cours' ? '#1e40af' : '#047857'};
+                                    font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 100px;
+                                ">${s.statut.toUpperCase()}</span>
                             </div>
-                            <h4 style="margin-top: 0.2rem;">${s.livreur.nom}</h4>
-                            <p style="font-size: 0.7rem; color: var(--slate-600);">${s.zone_libre} • ${s.nb_colis} colis</p>
-                            <h5 style="color: var(--brand-navy); font-weight: 900; margin-top: 0.25rem;">${formatFCFA(s.montant_total)}</h5>
+                            <h4 style="margin:0; font-size: 0.95rem; font-weight: 900; color: var(--brand-navy);">${s.livreur?.nom || 'Livreur inconnu'}</h4>
+                            <p style="font-size: 0.7rem; color: var(--slate-500); font-weight: 600; margin-top: 0.1rem;">
+                                <i data-lucide="map-pin" style="width:10px; vertical-align:middle;"></i> ${s.zone_libre} • ${s.nb_colis} colis
+                            </p>
                         </div>
-                        <i data-lucide="chevron-right" style="color: var(--slate-200); width: 18px;"></i>
+                        <div style="text-align: right; margin-left:1rem;">
+                            <h5 style="color: var(--brand-navy); font-weight: 900; font-size: 0.9rem; margin:0;">${formatFCFA(s.montant_total)}</h5>
+                            <i data-lucide="chevron-right" style="color: var(--slate-200); width: 16px; margin-top:0.2rem;"></i>
+                        </div>
                     `;
                     list.appendChild(item);
                 });
             } else {
-                list.innerHTML = '<div style="text-align: center; padding: 4rem 2rem; color: var(--slate-400);"><p>Aucun résultat correspondant.</p></div>';
+                list.innerHTML = '<div style="text-align: center; padding: 4rem 2rem; color: var(--slate-400);"><p style="font-weight:700;">Aucun dossier trouvé.</p></div>';
             }
             lucide.createIcons();
         }

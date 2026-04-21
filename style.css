@@ -19,25 +19,98 @@
 
 * {
     margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
-
-:root {
-    --brand-navy: #1e3a8a;
-    --brand-blue: #3b82f6;
-    --brand-slate: #0f172a;
-    --success: #22c55e;
+    --brand-navy: #0f172a;
+    --brand-blue: #2563eb;
+    --brand-accent: #38bdf8;
+    --success: #10b981;
     --danger: #ef4444;
-    --white: #ffffff;
+    --warning: #f59e0b;
     --slate-50: #f8fafc;
     --slate-100: #f1f5f9;
     --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
     --slate-400: #94a3b8;
+    --slate-500: #64748b;
     --slate-600: #475569;
     --slate-700: #334155;
-    --radius-md: 12px;
+    --slate-800: #1e293b;
+    --slate-950: #020617;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body { 
+    font-family: 'Inter', sans-serif; 
+    background: var(--slate-50); 
+    color: var(--brand-navy); 
+    line-height: 1.5; 
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+/* Animations Premium */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin { animation: spin 1s linear infinite; }
+.animate-in { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Login Container Premium */
+.login-container {
+    max-width: 400px;
+    margin: 4rem auto;
+    padding: 2.5rem 2rem;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 32px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.logo-area {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, var(--brand-blue), var(--brand-navy));
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1.5rem;
+    color: white;
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+}
+
+h1 { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.025em; color: var(--brand-navy); margin-bottom: 0.5rem; }
+.sub { font-size: 0.875rem; color: var(--slate-500); margin-bottom: 2rem; }
+
+/* PIN Input Premium */
+.pin-container {
+    display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; position: relative;
+}
+
+.pin-dot {
+    width: 50px; height: 60px;
+    border: 2px solid var(--slate-200);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 900;
+    color: var(--brand-navy);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    background: white;
+}
+
+.pin-dot.active { border-color: var(--brand-blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); transform: scale(1.05); }
+.pin-dot.filled { border-color: var(--brand-navy); background: var(--slate-50); }
+.pin-dot.error { border-color: var(--danger); }
+
+.pin-input {
+    position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer;
 }
 
 html, body {
@@ -76,6 +149,38 @@ main {
     max-width: 600px;
     margin: 0 auto;
     width: 100%;
+}
+
+/* Bouton Mise à jour forcée */
+.force-update-btn {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--slate-400);
+    border: 1px solid var(--slate-200);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    z-index: 1000;
+    text-transform: uppercase;
+    transition: all 0.3s;
+}
+
+.force-update-btn:hover { color: var(--brand-blue); border-color: var(--brand-blue); }
+.force-update-btn:active { transform: translateX(-50%) scale(0.95); }
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .login-container { margin: 2rem 1rem; padding: 2rem 1.5rem; }
+    .pin-dot { width: 42px; height: 52px; }
 }
 
 /* CARDS SOBRES */

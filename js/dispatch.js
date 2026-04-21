@@ -162,15 +162,14 @@ async function handleSubmit(e) {
 
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Check existing
+        // 1. Check existing: On cherche n'importe quelle tournée EN COURS pour ce livreur
+        // Peu importe la date (si celle d'hier n'est pas fermée, on ajoute dessus)
         console.log("Vérification tournée existante...");
         const { data: existingSortie, error: checkErr } = await supabaseClient
             .from('sorties')
             .select('*')
             .eq('livreur_id', livreurId)
             .eq('statut', 'En Cours')
-            .gte('created_at', `${today}T00:00:00Z`)
-            .lte('created_at', `${today}T23:59:59Z`)
             .maybeSingle();
 
         if (checkErr) console.error("Erreur check:", checkErr);
