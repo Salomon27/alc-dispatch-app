@@ -248,22 +248,7 @@
                 else document.getElementById('pointDetails').classList.add('hidden');
             });
 
-            document.getElementById('returnPhotoInput').addEventListener('change', async (e) => {
-                if (e.target.files[0]) {
-                    const btn = document.getElementById('returnPhotoPlaceholder');
-                    btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i><p>Compression...</p>';
-                    lucide.createIcons();
-                    try {
-                        currentReturnPhoto = await compressImage(e.target.files[0]);
-                        document.getElementById('returnPhotoPreview').src = URL.createObjectURL(currentReturnPhoto);
-                        document.getElementById('returnPhotoPreview').classList.remove('hidden');
-                        document.getElementById('returnPhotoPlaceholder').classList.add('hidden');
-                    } catch (err) {
-                        alert("Erreur: " + err.message);
-                        resetReturnForm();
-                    }
-                }
-            });
+
 
             document.getElementById('ajoutPhotoInput').addEventListener('change', async (e) => {
                 if (e.target.files[0]) {
