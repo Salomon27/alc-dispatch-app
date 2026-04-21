@@ -146,23 +146,24 @@
                 <button id="addColisBtn" class="btn" style="background: var(--brand-navy); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">ENREGISTRER L'AJOUT</button>
             </div>
 
-            <!-- PANNEAU CACHÉ : RETOUR -->
-            <div id="retourPanel" class="form-panel" style="border: 1px solid var(--slate-200);">
+            <!-- PANNEAU CACHÉ : RETOUR (SÉLECTION DE COLIS) -->
+            <div id="retourPanel" class="form-panel" style="border: 1px solid #fca5a5;">
                 <button class="close-panel" onclick="togglePanel(null)" style="color: var(--slate-500);">×</button>
-                <h4 style="color: var(--danger); font-weight: 800; font-size: 0.85rem; margin-bottom: 1rem; text-transform: uppercase;">Déclaration Litige / Retour</h4>
-                <div class="capture-return" style="border-color: #fca5a5; background: #fef2f2;" onclick="document.getElementById('returnPhotoInput').click()">
-                    <img id="returnPhotoPreview" class="hidden">
-                    <div id="returnPhotoPlaceholder" style="text-align: center;">
-                        <i data-lucide="camera" style="color: var(--danger); width: 20px; margin:0 auto;"></i>
-                        <p style="font-size: 0.6rem; color: var(--danger); font-weight: 700; margin-top: 0.2rem;">PHOTOGRAPHIER LE COLIS</p>
-                    </div>
+                <h4 style="color: var(--danger); font-weight: 800; font-size: 0.85rem; margin-bottom: 0.5rem; text-transform: uppercase;">Déclarer un Retour</h4>
+                <p style="font-size: 0.7rem; color: var(--slate-500); margin-bottom: 1rem;">Sélectionnez le ou les colis retournés par le client.</p>
+                
+                <!-- Liste de sélection des colis -->
+                <div id="retourColisListe" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; max-height: 250px; overflow-y: auto;">
+                    <p style="text-align: center; color: var(--slate-400); font-size: 0.75rem;">Chargement...</p>
                 </div>
-                <input type="file" id="returnPhotoInput" accept="image/*" capture="environment" class="hidden">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
-                    <div><label style="font-size:0.6rem;font-weight:700;color:var(--danger);">MONTANT (-)</label><input type="number" id="returnAmount" placeholder="Ex: 2500" style="border-color: #fca5a5;"></div>
-                    <div><label style="font-size:0.6rem;font-weight:700;color:var(--danger);">MOTIF LITIGE</label><input type="text" id="returnComment" placeholder="Raisons..." style="border-color: #fca5a5;"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-top: 1px solid #fca5a5; margin-bottom: 0.75rem;">
+                    <p style="font-size: 0.7rem; color: var(--danger); font-weight: 800;">TOTAL DÉDUIT</p>
+                    <p id="retourTotalDeduit" style="font-size: 1rem; font-weight: 900; color: var(--danger);">0 F</p>
                 </div>
-                <button id="addReturnBtn" class="btn" style="background: white; border: 1px solid var(--danger); color: var(--danger); width: 100%; font-size: 0.75rem; font-weight: 800;">ENREGISTRER LE RETOUR</button>
+
+                <input type="text" id="returnComment" placeholder="Motif du retour (optionnel)" class="form-group" style="margin-bottom: 1rem; border: 1px solid #fca5a5; font-size: 0.75rem;">
+                <button id="addReturnBtn" class="btn" style="background: var(--danger); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">CONFIRMER LE RETOUR</button>
             </div>
 
             <div id="recapArea" style="background: white; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
@@ -281,7 +282,7 @@
                 }
             });
 
-            document.getElementById('addReturnBtn').addEventListener('click', addReturn);
+            document.getElementById('addReturnBtn').addEventListener('click', confirmReturn);
             document.getElementById('addColisBtn').addEventListener('click', addExtraColis);
             document.getElementById('validateClotureBtn').addEventListener('click', validateCloture);
         }
@@ -517,53 +518,111 @@
             }
         }
 
-        async function addReturn() {
-            const amount = document.getElementById('returnAmount').value;
-            const comment = document.getElementById('returnComment').value;
-            if (!amount || !currentReturnPhoto) return alert("Photo et Montant obligatoires pour un retour.");
-
-            const btn = document.getElementById('addReturnBtn');
-            btn.disabled = true;
-            btn.innerHTML = "Traitement...";
-
-            try {
-                const fileName = `retour-${Date.now()}.jpg`;
-                const { error: upErr } = await supabaseClient.storage.from('sorties_photos').upload(fileName, currentReturnPhoto);
-                if (upErr) throw upErr;
-                const { data: urlData } = supabaseClient.storage.from('sorties_photos').getPublicUrl(fileName);
-
-                const newReturn = {
-                    id: Math.random().toString(36).substring(2),
-                    type: 'retour',
-                    date: new Date().toISOString(),
-                    nb: 1,
-                    montant: Number(amount),
-                    photo_url: urlData.publicUrl,
-                    commentaire: comment
-                };
-
-                const updatedCompletions = [...(currentSortie.completions || []), newReturn];
-                const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
-                
-                if (!error) {
-                    currentSortie.completions = updatedCompletions;
-                    renderRecap();
-                    resetReturnForm();
-                    window.togglePanel(null); // Ferme le panel !
-                }
-            } catch (e) { alert("Erreur retour: " + e.message); } 
-            finally {
-                btn.disabled = false;
-                btn.innerHTML = 'VALIDER LE RETOUR';
+        // Ouvre le panel retour et construit la liste des colis sélectionnables
+        const originalTogglePanel = window.togglePanel;
+        window.togglePanel = function(panelId) {
+            document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+            if (panelId) {
+                document.getElementById(panelId).classList.add('active');
+                if (panelId === 'retourPanel') buildRetourColisListe();
             }
         }
 
-        function resetReturnForm() {
-            document.getElementById('returnAmount').value = '';
-            document.getElementById('returnComment').value = '';
-            document.getElementById('returnPhotoPreview').classList.add('hidden');
-            document.getElementById('returnPhotoPlaceholder').classList.remove('hidden');
-            currentReturnPhoto = null;
+        function buildRetourColisListe() {
+            const liste = document.getElementById('retourColisListe');
+            liste.innerHTML = '';
+            let allColis = [];
+
+            // 1. Colis du départ initial
+            (currentSortie.details_colis || []).forEach(c => {
+                if (!c.photo_url && !c.photo) return;
+                allColis.push({ id: 'dep_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'depart' });
+            });
+
+            // 2. Colis des ajouts
+            (currentSortie.completions || []).filter(c => c.type === 'ajout' && Number(c.nb || 0) > 0).forEach(comp => {
+                const details = comp.details || [{ photo_url: comp.photo_url, valeur: comp.montant, commentaire: comp.commentaire }];
+                details.forEach(c => {
+                    if (!c.photo_url && !c.photo) return;
+                    allColis.push({ id: 'ajout_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || comp.montant || 0), commentaire: c.commentaire || '', source: 'ajout', compId: comp.id });
+                });
+            });
+
+            if (allColis.length === 0) {
+                liste.innerHTML = '<p style="text-align:center; color:var(--slate-400); font-size:0.75rem;">Aucun colis disponible.</p>';
+                return;
+            }
+
+            allColis.forEach(c => {
+                const row = document.createElement('label');
+                row.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid #fee2e2; border-radius:8px; cursor:pointer; background:white;';
+                row.innerHTML = `
+                    <input type="checkbox" data-id="${c.id}" data-valeur="${c.valeur}" style="width:18px;height:18px;accent-color:var(--danger); flex-shrink:0;">
+                    <img src="${c.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px; flex-shrink:0;">
+                    <div style="flex:1;">
+                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${formatFCFA(c.valeur)}</p>
+                        <p style="font-size:0.6rem;color:var(--slate-500);margin:0;">${c.commentaire || '—'}</p>
+                    </div>
+                `;
+                row.querySelector('input').addEventListener('change', updateRetourTotal);
+                liste.appendChild(row);
+            });
+
+            updateRetourTotal();
+        }
+
+        function updateRetourTotal() {
+            let total = 0;
+            document.querySelectorAll('#retourColisListe input[type=checkbox]:checked').forEach(cb => {
+                total += Number(cb.dataset.valeur || 0);
+            });
+            document.getElementById('retourTotalDeduit').textContent = formatFCFA(total);
+        }
+
+        async function confirmReturn() {
+            const selected = [...document.querySelectorAll('#retourColisListe input[type=checkbox]:checked')];
+            if (selected.length === 0) return alert('Sélectionnez au moins un colis à retourner.');
+
+            const motif = document.getElementById('returnComment').value.trim();
+            const btn = document.getElementById('addReturnBtn');
+            btn.disabled = true;
+            btn.textContent = 'Traitement...';
+
+            const totalMontant = selected.reduce((s, cb) => s + Number(cb.dataset.valeur || 0), 0);
+
+            // On crée une entrée retour avec les photos des colis sélectionnés
+            const photosRetour = selected.map(cb => {
+                const img = cb.closest('label').querySelector('img');
+                return { photo_url: img.src, valeur: Number(cb.dataset.valeur || 0) };
+            });
+
+            const newReturn = {
+                id: Math.random().toString(36).substring(2),
+                type: 'retour',
+                date: new Date().toISOString(),
+                nb: selected.length,
+                montant: totalMontant,
+                photo_url: photosRetour[0].photo_url, // Photo principale
+                details: photosRetour,
+                commentaire: motif || `${selected.length} colis retourné(s)`
+            };
+
+            const updatedCompletions = [...(currentSortie.completions || []), newReturn];
+            const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+
+            if (!error) {
+                currentSortie.completions = updatedCompletions;
+                document.getElementById('returnComment').value = '';
+                document.querySelectorAll('#retourColisListe input[type=checkbox]').forEach(cb => cb.checked = false);
+                updateRetourTotal();
+                window.togglePanel(null);
+                renderRecap();
+            } else {
+                alert('Erreur : ' + error.message);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'CONFIRMER LE RETOUR';
         }
 
         function resetAjoutForm() {
