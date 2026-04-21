@@ -196,11 +196,19 @@
             document.getElementById('editTel').value = data.telephone || '';
             document.getElementById('editPin').value = data.code_pin || '';
 
-            // Stats Faciles
-            const { count: tourCount } = await supabaseClient.from('sorties').select('*', { count: 'exact', head: true }).eq('livreur_id', livreurId);
+            // Stats : on exclut les sorties annulées
+            const { count: tourCount } = await supabaseClient
+                .from('sorties')
+                .select('*', { count: 'exact', head: true })
+                .eq('livreur_id', livreurId)
+                .neq('statut', 'Annulé');
             document.getElementById('stat-run').textContent = tourCount || 0;
             
-            const { data: cols } = await supabaseClient.from('sorties').select('nb_colis').eq('livreur_id', livreurId);
+            const { data: cols } = await supabaseClient
+                .from('sorties')
+                .select('nb_colis')
+                .eq('livreur_id', livreurId)
+                .neq('statut', 'Annulé');
             let tot = 0;
             if(cols) cols.forEach(c => tot += Number(c.nb_colis));
             document.getElementById('stat-colis').textContent = tot;
