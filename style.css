@@ -354,8 +354,10 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    padding: 0.75rem 0.5rem;
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding: 0.85rem 0.5rem;
+    /* Augmentation de la marge de sécurité pour les téléphones sans bordures */
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.03);
     z-index: 1000;
     flex-shrink: 0;
 }

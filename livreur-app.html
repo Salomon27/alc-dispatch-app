@@ -13,27 +13,7 @@
     
     <!-- OneSignal Web Push SDK -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-        await OneSignal.init({
-          appId: "c3645588-b84c-4969-bd4c-9218abdbc448",
-          safari_web_id: "web.onesignal.auto.087eca46-faed-450d-af5b-90e7f525c88c",
-          serviceWorkerPath: basePath + "sw.js",
-          serviceWorkerParam: { scope: basePath }
-        });
-        
-        // Forcer le vrai message d'abonnement du navigateur (Slidedown) sans la cloche rouge
-        OneSignal.Slidedown.promptPush();
-        
-        // Optionnel : Lier le livreur à son identifiant unique pour l'envoi de push ciblé
-        const userData = JSON.parse(localStorage.getItem('alc_session'));
-        if (userData && userData.userId) {
-            OneSignal.login(userData.userId);
-        }
-      });
-    </script>
+    <script src="js/onesignal-init.js" defer></script>
     
     <style>
         body { background: #f8fafc; font-family: 'Inter', sans-serif; }
