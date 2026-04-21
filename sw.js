@@ -1,6 +1,6 @@
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-const CACHE_NAME = "alc-v1";
+const CACHE_NAME = "alc-v2";
 
 self.addEventListener('install', (e) => {
     self.skipWaiting();
@@ -11,7 +11,8 @@ self.addEventListener('install', (e) => {
                 './index.html',
                 './style.css',
                 './js/utils.js',
-                './js/config.js'
+                './js/config.js',
+                './js/menu.js'
             ]);
         })
     );
