@@ -273,20 +273,44 @@
         }
 
         async function loadActiveSorties() {
+            // Un petit nettoyage des dossiers fantômes (0 colis) avant de charger
+            await cleanupGhostSorties();
+
             const { data, error } = await supabaseClient
                 .from('sorties')
-                .select('id, nb_colis, livreur:livreurs(nom)')
-                .eq('statut', 'En Cours')
-                .gt('nb_colis', 0); // On exclut les sorties sans colis (suppression totale)
+                .select('id, nb_colis, completions, livreur:livreurs(nom)')
+                .eq('statut', 'En Cours');
+                
             if (error) return;
             const select = document.getElementById('activeLivreurSelect');
+            select.innerHTML = '<option value="">-- Sélectionner un livreur en cours --</option>';
+
             if (data) {
                 data.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = s.livreur.nom;
-                    select.appendChild(opt);
+                    // On vérifie si la sortie est réellement vide (0 initial + 0 ajouts)
+                    const totalColis = Number(s.nb_colis || 0) + (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
+                    if (totalColis > 0) {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = s.livreur.nom;
+                        select.appendChild(opt);
+                    }
                 });
+            }
+        }
+
+        async function cleanupGhostSorties() {
+            // Récupère toutes les sorties actives
+            const { data } = await supabaseClient.from('sorties').select('id, nb_colis, completions').eq('statut', 'En Cours');
+            if (data) {
+                for (const s of data) {
+                    const totalColis = Number(s.nb_colis || 0) + (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
+                    if (totalColis <= 0) {
+                        // C'est une erreur de saisie, on l'efface pour toujours
+                        await supabaseClient.from('sorties').delete().eq('id', s.id);
+                        console.log("Dossier fantôme supprimé ID:", s.id);
+                    }
+                }
             }
         }
 

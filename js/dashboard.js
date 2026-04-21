@@ -92,13 +92,19 @@ async function loadDashboardStats() {
         .eq('statut', 'En Cours');
 
     let pendingTotal = 0;
+    let realPendingCount = 0;
     if (pendingData) {
         pendingData.forEach(s => {
             const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
             const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-            pendingTotal += (Number(s.montant_total) + ajouts - retours);
+            const totalColis = Number(s.nb_colis || 0) + (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
+            
+            if (totalColis > 0) {
+                pendingTotal += (Number(s.montant_total) + ajouts - retours);
+                realPendingCount++;
+            }
         });
-        document.getElementById('statActiveLivreurs').textContent = pendingData.length;
+        document.getElementById('statActiveLivreurs').textContent = realPendingCount;
     }
     document.getElementById('statPending').textContent = formatFCFA(pendingTotal);
 

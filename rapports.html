@@ -102,6 +102,9 @@
         async function loadRapports() {
             const { userId, role } = getSession();
             
+            // NETTOYAGE DES DOSSIERS VIDES D'ABORD
+            await cleanupGhostSorties();
+
             let query = supabaseClient
                 .from('sorties')
                 .select('*, livreur:livreurs(nom)')
@@ -213,6 +216,20 @@
                 document.getElementById('periodTotal').textContent = formatFCFA(total);
             } else {
                 bar.style.display = 'none';
+            }
+        }
+
+        async function cleanupGhostSorties() {
+            const { data } = await supabaseClient.from('sorties').select('id, nb_colis, completions');
+            if (data) {
+                const ghosts = data.filter(s => {
+                    const total = Number(s.nb_colis || 0) + (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
+                    return total <= 0;
+                });
+                
+                for (const g of ghosts) {
+                    await supabaseClient.from('sorties').delete().eq('id', g.id);
+                }
             }
         }
 
