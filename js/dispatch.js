@@ -146,13 +146,19 @@ async function handleSubmit(e) {
     elements.submitBtn.innerHTML = "Envoi...";
 
     try {
+        console.log("Démarrage envoi :", items.length, "colis");
         const livreurId = elements.livreurSelect.value;
         const zone = elements.zoneInput.value;
         const { userId } = getSession();
+        
+        if (!livreurId) throw new Error("Sélectionnez un livreur");
+        if (!userId) throw new Error("Session expirée, reconnectez-vous");
+
         const today = new Date().toISOString().split('T')[0];
 
         // 1. Check existing
-        const { data: existingSortie } = await supabaseClient
+        console.log("Vérification tournée existante...");
+        const { data: existingSortie, error: checkErr } = await supabaseClient
             .from('sorties')
             .select('*')
             .eq('livreur_id', livreurId)
@@ -161,11 +167,17 @@ async function handleSubmit(e) {
             .lte('created_at', `${today}T23:59:59Z`)
             .maybeSingle();
 
+        if (checkErr) console.error("Erreur check:", checkErr);
+
         // 2. Upload
-        const uploadPromises = items.map(async (item) => {
-            const fileName = `colis-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+        console.log("Upload des photos...");
+        const uploadPromises = items.map(async (item, index) => {
+            const fileName = `colis-${Date.now()}-${index}-${Math.random().toString(36).substring(2)}.jpg`;
             const { error: upErr } = await supabaseClient.storage.from('sorties_photos').upload(fileName, item.photo);
-            if (upErr) throw upErr;
+            if (upErr) {
+                console.error("Erreur upload photo", index, upErr);
+                throw new Error("Échec upload photo: " + upErr.message);
+            }
             const { data } = supabaseClient.storage.from('sorties_photos').getPublicUrl(fileName);
             return { 
                 valeur: item.montant, 
@@ -176,10 +188,13 @@ async function handleSubmit(e) {
         });
         
         const finalDetails = await Promise.all(uploadPromises);
+        console.log("Photos uploadées :", finalDetails.length);
+
         const totalAmount = items.reduce((s, i) => s + i.montant, 0);
         const totalCount = items.length;
 
         if (existingSortie) {
+            console.log("Fusion avec tournée existante ID :", existingSortie.id);
             const newAjout = {
                 id: Math.random().toString(36).substring(2),
                 type: 'ajout',
@@ -196,6 +211,7 @@ async function handleSubmit(e) {
                 .eq('id', existingSortie.id);
             if (upErr) throw upErr;
         } else {
+            console.log("Création nouvelle tournée...");
             const { error: insErr } = await supabaseClient
                 .from('sorties').insert({
                     livreur_id: livreurId,
@@ -210,12 +226,14 @@ async function handleSubmit(e) {
             if (insErr) throw insErr;
         }
 
+        console.log("Succès final !");
         elements.successOverlay.classList.add('show');
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         setTimeout(() => window.location.reload(), 2000);
 
     } catch (err) {
-        alert("Erreur: " + err.message);
+        console.error("CRITICAL ERROR during save:", err);
+        alert("Erreur critique d'enregistrement : " + err.message);
         elements.submitBtn.disabled = false;
         elements.submitBtn.innerHTML = "VALIDER TOUT";
     }

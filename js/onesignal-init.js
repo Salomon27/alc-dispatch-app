@@ -26,20 +26,14 @@ OneSignalDeferred.push(async function(OneSignal) {
     });
 
     // Identification automatique si connecté
-    const sessionStr = localStorage.getItem('alc_session');
-    if (sessionStr) {
-        try {
-            const userData = JSON.parse(sessionStr);
-            if (userData.role === 'patronne') {
-                OneSignal.login("boss_patronne");
-            } else if (userData.role === 'livreur' && userData.id) {
-                OneSignal.login(userData.id);
-            } else if (userData.id) {
-                // Gérant ou autre
-                OneSignal.login(userData.id);
-            }
-        } catch (e) {
-            console.error("Erreur parsing session OneSignal", e);
+    const userId = localStorage.getItem('alc_userId');
+    const role = localStorage.getItem('alc_role');
+    
+    if (userId && role) {
+        if (role === 'patronne') {
+            OneSignal.login("boss_patronne");
+        } else {
+            OneSignal.login(userId);
         }
     }
 });
