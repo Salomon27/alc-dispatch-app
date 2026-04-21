@@ -445,16 +445,26 @@ main {
 
 /* HAMBURGER & SIDEBAR */
 .burger-menu-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    background: var(--slate-100);
-    border-radius: 10px;
-    border: none;
-    color: var(--brand-navy);
+    background: var(--brand-navy);
+    border-radius: 12px;
+    border: 2px solid white;
+    color: white;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 5000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s;
+}
+
+.burger-menu-btn:active {
+    transform: scale(0.9);
 }
 
 .sidebar-overlay {

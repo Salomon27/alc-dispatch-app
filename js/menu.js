@@ -82,34 +82,16 @@ export function toggleMenu() {
 }
 
 function injectBurgerButton() {
-    // On cherche un conteneur d'en-tête existant
-    let header = document.querySelector('.page-header, .boss-hero, .fixed-top-area, .header-livreur');
+    // Si le bouton existe déjà, on ne fait rien
+    if (document.querySelector('.burger-menu-btn')) return;
+
+    const burgerBtn = document.createElement('button');
+    burgerBtn.className = 'burger-menu-btn';
+    burgerBtn.id = 'toggleAppMenu';
+    burgerBtn.innerHTML = '<i data-lucide="menu"></i>';
+    burgerBtn.onclick = toggleMenu;
     
-    if (header) {
-        // Si c'est l'un de ces conteneurs, on injecte le bouton au début ou dans un coin
-        const burgerBtn = document.createElement('button');
-        burgerBtn.className = 'burger-menu-btn';
-        burgerBtn.innerHTML = '<i data-lucide="menu"></i>';
-        burgerBtn.onclick = toggleMenu;
-        
-        // On l'ajoute comme premier enfant
-        header.prepend(burgerBtn);
-    } else {
-        // Fallback : Bouton flottant si pas de header détecté
-        const fab = document.createElement('button');
-        fab.className = 'burger-menu-btn';
-        fab.style.position = 'fixed';
-        fab.style.top = '15px';
-        fab.style.left = '15px';
-        fab.style.zIndex = '2500';
-        fab.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-        fab.innerHTML = '<i data-lucide="menu"></i>';
-        fab.onclick = toggleMenu;
-        document.body.appendChild(fab);
-        
-        // On descend un peu le contenu du body pour pas qu'il soit dessous sur mobile si possible
-        document.body.style.paddingTop = '60px';
-    }
+    document.body.appendChild(burgerBtn);
 }
 
 // Auto-init si on est importé
