@@ -4,6 +4,8 @@ export function initMenu() {
     const session = getSession();
     if (!session.userId) return;
 
+    document.body.classList.add('has-sidebar-menu');
+
     // 1. Création de l'Overlay et de la Sidebar
     const overlay = document.createElement('div');
     overlay.className = 'sidebar-overlay';
