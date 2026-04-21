@@ -1,58 +1,54 @@
-const CACHE_NAME = "alc-v3";
+const CACHE_NAME = "alc-v4";
+
+// Fichiers essentiels à pré-cacher pour le mode offline
+const PRECACHE_URLS = [
+    './index.html',
+    './style.css',
+    './js/utils.js',
+    './js/config.js',
+    './js/menu.js'
+];
 
 self.addEventListener('install', (e) => {
-    self.skipWaiting();
+    self.skipWaiting(); // Prend le contrôle immédiatement
     e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll([
-                './',
-                './index.html',
-                './style.css',
-                './js/utils.js',
-                './js/config.js',
-                './js/menu.js'
-            ]);
-        })
+        caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
     );
 });
 
 self.addEventListener('activate', (e) => {
+    // Supprime TOUS les vieux caches au démarrage
     e.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        }).then(() => {
-            self.clients.claim();
-        })
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+        ).then(() => self.clients.claim())
     );
 });
 
 self.addEventListener('fetch', (e) => {
-    // Only cache GET requests originating from our domain or trusted CDNs
     if (e.request.method !== 'GET') return;
-    
-    // Bypass OneSignal internal API calls to prevent caching push issues
-    if (e.request.url.includes('onesignal.com')) return;
 
+    // STRATÉGIE NETWORK-FIRST :
+    // 1. On essaie toujours d'aller chercher la dernière version sur internet
+    // 2. Si internet échoue (hors-ligne), on sert la version en cache
+    // Cela garantit que tous les appareils reçoivent les mises à jour immédiatement
     e.respondWith(
-        caches.match(e.request).then(res => {
-            return res || fetch(e.request).then(fetchRes => {
-                return caches.open(CACHE_NAME).then(cache => {
-                    // Only cache valid HTTP responses
-                    if (fetchRes.status === 200) {
-                        cache.put(e.request, fetchRes.clone());
-                    }
-                    return fetchRes;
+        fetch(e.request)
+            .then(networkResponse => {
+                // Mise à jour du cache avec la version fraîche du serveur
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type !== 'opaque') {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(e.request, responseToCache));
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                // Pas de connexion -> on sert le cache
+                return caches.match(e.request).then(cached => {
+                    if (cached) return cached;
+                    // Fallback ultime sur index.html pour la navigation
+                    if (e.request.mode === 'navigate') return caches.match('./index.html');
                 });
-            });
-        }).catch(err => {
-            // Fallback for offline mode if something fails
-            console.warn('Erreur réseau / Mode hors-ligne', err);
-        })
+            })
     );
 });

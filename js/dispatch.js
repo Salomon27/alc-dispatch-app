@@ -1,9 +1,8 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { compressImage, getSession, checkAuth, formatFCFA, logout } from './utils.js';
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 // --- STATE ---
+let supabaseClient = null;
 let items = [];
 let currentItemPhoto = null;
 
@@ -32,6 +31,13 @@ const elements = {
 
 // --- INITIALIZATION ---
 async function init() {
+    // Initialisation du client DANS init() pour éviter la race condition avec le CDN
+    if (!window.supabase) {
+        alert("Erreur de connexion : La base de données n'est pas disponible. Vérifiez votre connexion internet.");
+        return;
+    }
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
     checkAuth('gerant');
     lucide.createIcons();
     await loadLivreurs();

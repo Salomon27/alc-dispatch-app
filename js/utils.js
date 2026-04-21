@@ -4,42 +4,41 @@
  * @returns {Promise<Blob>}
  */
 export async function compressImage(file) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
+        reader.onerror = () => reject(new Error('Impossible de lire le fichier image.'));
         reader.onload = (event) => {
             const img = new Image();
             img.src = event.target.result;
+            img.onerror = () => reject(new Error('Image corrompue ou format non supporté.'));
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
+                try {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
 
-                // Max resolution 800px (highly optimized for fast mobile upload)
-                const MAX_SIZE = 800;
-                if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
+                    const MAX_SIZE = 800;
+                    if (width > height) {
+                        if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+                    } else {
+                        if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
                     }
-                } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
+
+                    canvas.width = Math.round(width);
+                    canvas.height = Math.round(height);
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return reject(new Error('Votre téléphone ne supporte pas la compression. Réessayez.'));
+                    
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    canvas.toBlob((blob) => {
+                        if (!blob) return reject(new Error('Échec de la compression. Mémoire insuffisante ?'));
+                        resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                    }, 'image/jpeg', 0.6); // 60% qualité, bon compromis rapidité/qualité
+                } catch (err) {
+                    reject(new Error('Erreur compression: ' + err.message));
                 }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob((blob) => {
-                    resolve(new File([blob], file.name, {
-                        type: 'image/jpeg',
-                        lastModified: Date.now()
-                    }));
-                }, 'image/jpeg', 0.5); // Compression max à 50% pour économiser la data
             };
         };
     });
@@ -81,11 +80,13 @@ export function formatFCFA(amount) {
 export function checkAuth(requiredRole = null) {
     const { userId, role } = getSession();
     const href = window.location.href.toLowerCase();
+    const path = window.location.pathname.toLowerCase();
 
-    // On détermine si on est sur la page de login
-    const isLoginPage = href.includes('index.html') || href.endsWith(':3001/') || href.endsWith(':3001');
-
-    console.log("Auth Check:", { isLoginPage, role, userId });
+    // Détection robuste de la page login pour GitHub Pages et serveur local
+    const isLoginPage = path.endsWith('/index.html')
+        || path.endsWith('/')
+        || path === ''
+        || href.includes('index.html');
 
     // 1. Si on est sur LOGIN et qu'on a une session -> Direction Dashboard
     if (isLoginPage) {
@@ -105,7 +106,7 @@ export function checkAuth(requiredRole = null) {
 
     // 3. Protection de Zone
     if (requiredRole && role !== requiredRole && role !== 'patronne') {
-        alert("🔒 Accès restreint : Redirection...");
+        alert('🔒 Accès restreint : Redirection...');
         redirectByRole(role);
         return;
     }

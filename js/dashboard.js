@@ -1,9 +1,15 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { checkAuth, formatFCFA } from './utils.js';
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabaseClient = null;
 
 async function init() {
+    if (!window.supabase) {
+        alert("Erreur de connexion : La base de données n'est pas disponible.");
+        return;
+    }
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
     checkAuth();
     lucide.createIcons();
     loadDashboardStats();
