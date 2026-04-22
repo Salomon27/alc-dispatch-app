@@ -13,6 +13,7 @@ async function init() {
     checkAuth();
     lucide.createIcons();
     loadDashboardStats();
+    runAutoCleanup();
     
     document.getElementById('refreshBtn').addEventListener('click', () => location.reload());
     document.getElementById('periodFilter').addEventListener('change', loadDashboardStats);
@@ -165,6 +166,85 @@ function renderRecentActivity(data) {
         list.innerHTML = '<p style="text-align: center; color: var(--slate-400); padding: 1rem;">Aucune activité.</p>';
     }
     lucide.createIcons();
+}
+
+async function runAutoCleanup() {
+    const lastCleanup = localStorage.getItem('alc_last_cleanup');
+    const today = new Date().toISOString().split('T')[0];
+    if (lastCleanup === today) return; // Déjà fait aujourd'hui
+
+    console.log("Démarrage maintenance : Nettoyage photos > 7 jours");
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // 1. Trouver les sorties de plus de 7 jours qui ont encore des photos
+    const { data: oldSorties } = await supabaseClient
+        .from('sorties')
+        .select('id, photo_url, details_colis, completions')
+        .lt('created_at', sevenDaysAgo.toISOString())
+        .not('photo_url', 'is', null);
+
+    if (!oldSorties || oldSorties.length === 0) {
+        localStorage.setItem('alc_last_cleanup', today);
+        return;
+    }
+
+    let pathsToDelete = [];
+    
+    const getPathFromUrl = (url) => {
+        if (!url || !url.includes('sorties_photos/')) return null;
+        return url.split('sorties_photos/')[1];
+    };
+
+    for (const s of oldSorties) {
+        // Collecter les chemins
+        if (s.photo_url) pathsToDelete.push(getPathFromUrl(s.photo_url));
+        
+        if (s.details_colis) {
+            s.details_colis.forEach(c => {
+                const p = getPathFromUrl(c.photo_url || c.photo);
+                if (p) pathsToDelete.push(p);
+            });
+        }
+        
+        if (s.completions) {
+            s.completions.forEach(comp => {
+                const p = getPathFromUrl(comp.photo_url);
+                if (p) pathsToDelete.push(p);
+                if (comp.details) {
+                    comp.details.forEach(d => {
+                        const dp = getPathFromUrl(d.photo_url || d.photo);
+                        if (dp) pathsToDelete.push(dp);
+                    });
+                }
+            });
+        }
+
+        // 2. Nettoyer les données dans la DB (on garde les chiffres mais on enlève les liens photos morts)
+        const cleanedDetails = (s.details_colis || []).map(c => ({ ...c, photo_url: null, photo: null }));
+        const cleanedCompletions = (s.completions || []).map(comp => {
+            const cDetails = (comp.details || []).map(d => ({ ...d, photo_url: null, photo: null }));
+            return { ...comp, photo_url: null, details: cDetails };
+        });
+
+        await supabaseClient.from('sorties').update({
+            photo_url: null,
+            details_colis: cleanedDetails,
+            completions: cleanedCompletions
+        }).eq('id', s.id);
+    }
+
+    // 3. Supprimer les fichiers du storage par lots de 100 (limite Supabase)
+    const uniquePaths = [...new Set(pathsToDelete)].filter(p => p !== null);
+    if (uniquePaths.length > 0) {
+        for (let i = 0; i < uniquePaths.length; i += 100) {
+            const batch = uniquePaths.slice(i, i + 100);
+            await supabaseClient.storage.from('sorties_photos').remove(batch);
+        }
+        console.log(`Maintenance terminée : ${uniquePaths.length} photos supprimées.`);
+    }
+
+    localStorage.setItem('alc_last_cleanup', today);
 }
 
 init();

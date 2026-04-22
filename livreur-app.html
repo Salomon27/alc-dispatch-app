@@ -320,11 +320,12 @@
             document.getElementById('emptyMsg').classList.add('hidden');
             document.getElementById('zoneName').innerHTML = `${sortie.zone_libre || 'En livraison'} ${isCached ? '<span style="font-size:0.5rem; background:rgba(255,255,255,0.2); padding:2px 4px; border-radius:4px; margin-left:5px;">HORS-LIGNE</span>' : ''}`;
 
-            // Calculate total versement including additions/returns
+            // Calculate total versement including additions/returns/deductions
             const initial = Number(sortie.montant_total);
             const ajouts = (sortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
             const retours = (sortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
-            const net = (initial + ajouts) - retours;
+            const deductions = (sortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
+            const net = (initial + ajouts) - retours - deductions;
 
             document.getElementById('totalVersement').textContent = formatFCFA(net);
 
@@ -383,7 +384,7 @@
                         </div>
                     </div>
                     <div class="colis-info">
-                        <div class="colis-price" onclick="openZoom('${c.photo}')">${formatFCFA(c.valeur)}</div>
+                        <div class="colis-price" onclick="openZoom('${c.photo}')">${c.valeur === 0 ? '<span style="color:var(--success)">PAYÉ</span>' : formatFCFA(c.valeur)}</div>
                         <div class="colis-desc" onclick="openZoom('${c.photo}')">${c.desc}</div>
                         <button class="deliver-btn" onclick="toggleDelivered('${sortie.id}', '${c.id}')">
                             <i data-lucide="${isDone ? 'rotate-ccw' : 'check-circle'}" style="width:12px;"></i>
