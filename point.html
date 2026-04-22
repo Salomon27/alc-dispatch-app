@@ -63,6 +63,8 @@
         .action-box:active { background: var(--slate-50); }
         .action-box.red { border-color: var(--slate-200); color: var(--danger); }
         .action-box.red i { color: var(--danger); }
+        .action-box.grey { border-color: var(--slate-200); color: var(--slate-800); }
+        .action-box.grey i { color: var(--slate-500); }
         
         .form-panel {
             background: white;
@@ -122,6 +124,10 @@
                     <i data-lucide="corner-down-left"></i>
                     Déclarer un Retour
                 </div>
+                <div class="action-box grey" onclick="togglePanel('deductionPanel')" style="grid-column: span 2; border-color: var(--slate-300);">
+                    <i data-lucide="truck"></i>
+                    Dégager Livraison (Colis déjà payé)
+                </div>
             </div>
 
             <!-- PANNEAU CACHÉ : AJOUT -->
@@ -164,6 +170,24 @@
 
                 <input type="text" id="returnComment" placeholder="Motif du retour (optionnel)" class="form-group" style="margin-bottom: 1rem; border: 1px solid #fca5a5; font-size: 0.75rem;">
                 <button id="addReturnBtn" class="btn" style="background: var(--danger); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">CONFIRMER LE RETOUR</button>
+            </div>
+
+            <!-- PANNEAU CACHÉ : DEDUCTION LIVRAISON (COLIS PAYÉS) -->
+            <div id="deductionPanel" class="form-panel" style="border: 1px solid var(--slate-300);">
+                <button class="close-panel" onclick="togglePanel(null)" style="color: var(--slate-500);">×</button>
+                <h4 style="color: var(--brand-navy); font-weight: 800; font-size: 0.85rem; margin-bottom: 0.5rem; text-transform: uppercase;">Dégager Livraison</h4>
+                <p style="font-size: 0.7rem; color: var(--slate-500); margin-bottom: 1rem;">Saisir le coût de la livraison pour les colis déjà payés.</p>
+                
+                <div id="deductionColisListe" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; max-height: 250px; overflow-y: auto;">
+                    <p style="text-align: center; color: var(--slate-400); font-size: 0.75rem;">Chargement...</p>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-top: 1px solid var(--slate-300); margin-bottom: 0.75rem;">
+                    <p style="font-size: 0.7rem; color: var(--slate-500); font-weight: 800;">TOTAL À DÉDUIRE</p>
+                    <p id="deductionTotalNet" style="font-size: 1rem; font-weight: 900; color: var(--brand-navy);">0 F</p>
+                </div>
+
+                <button id="addDeductionBtn" class="btn" style="background: var(--slate-800); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">VALIDER LES DÉDUCTIONS</button>
             </div>
 
             <div id="recapArea" style="background: white; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
@@ -269,6 +293,7 @@
 
             document.getElementById('addReturnBtn').addEventListener('click', confirmReturn);
             document.getElementById('addColisBtn').addEventListener('click', addExtraColis);
+            document.getElementById('addDeductionBtn').addEventListener('click', confirmDeduction);
             document.getElementById('validateClotureBtn').addEventListener('click', validateCloture);
         }
 
@@ -327,13 +352,14 @@
             const initial = Number(currentSortie.montant_total);
             const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
             const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
-
+            const deductions = (currentSortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
+            
             let initialColisCount = Number(currentSortie.nb_colis);
             const extraColisCount = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);
             
             document.getElementById('initialAmount').textContent = formatFCFA(initial + ajouts);
             document.getElementById('initialCount').textContent = initialColisCount + extraColisCount;
-            document.getElementById('netToPay').textContent = formatFCFA((initial + ajouts) - retours);
+            document.getElementById('netToPay').textContent = formatFCFA((initial + ajouts) - retours - deductions);
 
             const list = document.getElementById('eventsList');
             list.innerHTML = '';
@@ -349,7 +375,12 @@
                     // On n'affiche pas les ajouts dont tous les colis ont été supprimés
                     if (c.type === 'ajout' && Number(c.nb || 0) <= 0) return;
                     const photos = c.details || [{ photo_url: c.photo_url, commentaire: c.commentaire, valeur: c.montant }];
-                    addEventToUI(list, c.type === 'ajout' ? 'Oubli Ajouté' : 'Retour Client', c.montant, c.nb, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
+                    let eventLabel = 'Action';
+                    if(c.type === 'ajout') eventLabel = 'Oubli Ajouté';
+                    else if(c.type === 'retour') eventLabel = 'Retour Client';
+                    else if(c.type === 'deduction_livraison') eventLabel = 'Livraison (Colis Payé)';
+
+                    addEventToUI(list, eventLabel, c.montant, c.nb, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
                 });
             }
             lucide.createIcons();
@@ -374,10 +405,10 @@
                 `<button onclick="deleteCompletion(event, '${itemId}')" style="background:none; border:none; color:var(--danger); cursor:pointer; padding: 0.2rem 0; margin-top:0.3rem;"><i data-lucide="trash-2" style="width:14px;"></i></button>` : '';
 
             div.innerHTML = `
-                ${photo ? `<img src="${photo}" class="preview-img" style="border: 2px solid ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':'var(--slate-200)')}; height: 45px; width: 45px; object-fit: cover;">` : '<div style="width:45px;height:45px;background:var(--slate-100);border-radius:10px;"></div>'}
+                ${photo ? `<img src="${photo}" class="preview-img" style="border: 2px solid ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':(type==='deduction_livraison'?'var(--slate-800)':'var(--slate-200)'))}; height: 45px; width: 45px; object-fit: cover;">` : '<div style="width:45px;height:45px;background:var(--slate-100);border-radius:10px;"></div>'}
                 <div class="activity-info" style="margin-left: 0.75rem; flex: 1;">
-                    <p style="font-size: 0.65rem; font-weight: 800; color: ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':'var(--slate-500)')}">${label.toUpperCase()} <span style="color:var(--slate-400); font-weight:700; font-size:0.6rem; opacity:0.8;">• ${timeStr}</span></p>
-                    <h5 style="font-size: 1rem; font-weight: 900; color: var(--brand-navy); margin-top: 0.2rem;">${formatFCFA(amount)}</h5>
+                    <p style="font-size: 0.65rem; font-weight: 800; color: ${type==='retour'?'var(--danger)':(type==='ajout'?'var(--brand-blue)':(type==='deduction_livraison'?'var(--brand-navy)':'var(--slate-500)'))}">${label.toUpperCase()} <span style="color:var(--slate-400); font-weight:700; font-size:0.6rem; opacity:0.8;">• ${timeStr}</span></p>
+                    <h5 style="font-size: 1rem; font-weight: 900; color: var(--brand-navy); margin-top: 0.2rem;">${type==='deduction_livraison' ? '-' : ''}${formatFCFA(amount)}</h5>
                 </div>
                 <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
                     <div style="font-size: 0.65rem; color: var(--slate-700); font-weight: 800; background: var(--slate-100); padding: 0.3rem 0.6rem; border-radius: 20px;">
@@ -534,6 +565,7 @@
             if (panelId) {
                 document.getElementById(panelId).classList.add('active');
                 if (panelId === 'retourPanel') buildRetourColisListe();
+                if (panelId === 'deductionPanel') buildDeductionColisListe();
             }
         }
 
@@ -634,6 +666,105 @@
             btn.textContent = 'CONFIRMER LE RETOUR';
         }
 
+        function buildDeductionColisListe() {
+            const liste = document.getElementById('deductionColisListe');
+            liste.innerHTML = '';
+            let allColis = [];
+
+            // 1. Colis du départ initial
+            (currentSortie.details_colis || []).forEach(c => {
+                if (!c.photo_url && !c.photo) return;
+                allColis.push({ id: 'dep_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'depart' });
+            });
+
+            // 2. Colis des ajouts
+            (currentSortie.completions || []).filter(c => c.type === 'ajout' && Number(c.nb || 0) > 0).forEach(comp => {
+                const details = comp.details || [{ photo_url: comp.photo_url, valeur: comp.montant, commentaire: comp.commentaire }];
+                details.forEach(c => {
+                    if (!c.photo_url && !c.photo) return;
+                    allColis.push({ id: 'ajout_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || comp.montant || 0), commentaire: c.commentaire || '', source: 'ajout', compId: comp.id });
+                });
+            });
+
+            if (allColis.length === 0) {
+                liste.innerHTML = '<p style="text-align:center; color:var(--slate-400); font-size:0.75rem;">Aucun colis disponible.</p>';
+                return;
+            }
+
+            // Trier pour mettre les colis à 0 F en premier
+            allColis.sort((a, b) => a.valeur - b.valeur);
+
+            allColis.forEach(c => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid var(--slate-100); border-radius:12px; background:white;';
+                row.innerHTML = `
+                    <img src="${c.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px; flex-shrink:0;">
+                    <div style="flex:1;">
+                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${c.valeur === 0 ? 'PAYÉ' : formatFCFA(c.valeur)}</p>
+                        <p style="font-size:0.6rem;color:var(--slate-500);margin:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.commentaire || '—'}</p>
+                    </div>
+                    <div style="width:100px;">
+                        <input type="number" class="deduction-input" data-id="${c.id}" placeholder="Livraison" style="font-size:0.75rem; padding:0.4rem; border:1px solid var(--slate-200); border-radius:6px; width:100%;">
+                    </div>
+                `;
+                row.querySelector('input').addEventListener('input', updateDeductionTotal);
+                liste.appendChild(row);
+            });
+
+            updateDeductionTotal();
+        }
+
+        function updateDeductionTotal() {
+            let total = 0;
+            document.querySelectorAll('#deductionColisListe .deduction-input').forEach(input => {
+                total += Number(input.value || 0);
+            });
+            document.getElementById('deductionTotalNet').textContent = formatFCFA(total);
+        }
+
+        async function confirmDeduction() {
+            const inputs = [...document.querySelectorAll('#deductionColisListe .deduction-input')].filter(i => Number(i.value) > 0);
+            if (inputs.length === 0) return alert('Saisissez au moins un montant de livraison.');
+
+            const btn = document.getElementById('addDeductionBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;display:inline-block;vertical-align:middle;margin-right:0.5rem;"></i>Traitement...';
+            lucide.createIcons();
+
+            const totalMontant = inputs.reduce((s, i) => s + Number(i.value), 0);
+            
+            // On récupère les photos correspondantes
+            const deductionDetails = inputs.map(input => {
+                const img = input.closest('div').parentElement.querySelector('img');
+                return { photo_url: img.src, valeur: Number(input.value) };
+            });
+
+            const newDeduction = {
+                id: Math.random().toString(36).substring(2),
+                type: 'deduction_livraison',
+                date: new Date().toISOString(),
+                nb: inputs.length,
+                montant: totalMontant,
+                photo_url: deductionDetails[0].photo_url,
+                details: deductionDetails,
+                commentaire: `Livraison sur ${inputs.length} colis payé(s)`
+            };
+
+            const updatedCompletions = [...(currentSortie.completions || []), newDeduction];
+            const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+
+            if (!error) {
+                currentSortie.completions = updatedCompletions;
+                window.togglePanel(null);
+                renderRecap();
+            } else {
+                alert('Erreur : ' + error.message);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'VALIDER LES DÉDUCTIONS';
+        }
+
         function resetAjoutForm() {
             document.getElementById('addAmount').value = '';
             document.getElementById('addCount').value = '';
@@ -692,8 +823,9 @@
             const initial = Number(currentSortie.montant_total || 0);
             const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
             const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
+            const deductions = (currentSortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
             
-            const montantFinalNet = (initial + ajouts) - retours;
+            const montantFinalNet = (initial + ajouts) - retours - deductions;
             
             const initialNb = Number(currentSortie.nb_colis || 0);
             const ajoutsNb = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);

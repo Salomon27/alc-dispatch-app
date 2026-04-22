@@ -88,14 +88,14 @@ function addItem() {
     const montant = elements.itemMontant.value;
     const desc = elements.itemDesc.value || 'Colis';
 
-    if (!montant || !currentItemPhoto) {
-        alert("Photo et Montant obligatoires !");
+    if (montant === '' || !currentItemPhoto) {
+        alert("Photo obligatoire ! Si le colis est déjà payé, laissez le montant à 0.");
         return;
     }
 
     const item = {
         id: Math.random().toString(36).substring(2),
-        montant: parseFloat(montant),
+        montant: parseFloat(montant) || 0,
         desc: desc,
         photo: currentItemPhoto,
         preview: URL.createObjectURL(currentItemPhoto)
