@@ -237,12 +237,24 @@
             const today = new Date().toISOString().split('T')[0];
             const { data } = await supabaseClient
                 .from('sorties')
-                .select('montant_total')
+                .select('montant_total, completions')
                 .eq('livreur_id', livreurId)
                 .eq('statut', 'Clôturé')
                 .gte('created_at', `${today}T00:00:00Z`);
             
-            const total = (data || []).reduce((sum, s) => sum + Number(s.montant_total), 0);
+            let total = 0;
+            if (data) {
+                data.forEach(s => {
+                    const isNewStyle = s.completions && s.completions.some(c => c.type === 'cloture');
+                    if (isNewStyle) {
+                        total += Number(s.montant_total);
+                    } else {
+                        const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                        const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+                        total += (Number(s.montant_total) + ajouts - retours);
+                    }
+                });
+            }
             document.getElementById('userDailyRevenue').textContent = formatFCFA(total);
         }
 

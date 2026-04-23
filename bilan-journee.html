@@ -89,9 +89,15 @@
                 let dayColis = 0;
 
                 sorties.forEach(s => {
-                    const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
-                    const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-                    const net = (Number(s.montant_total) + ajouts - retours);
+                    const isNewStyle = s.completions && s.completions.some(c => c.type === 'cloture');
+                    let net;
+                    if (isNewStyle) {
+                        net = Number(s.montant_total);
+                    } else {
+                        const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
+                        const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
+                        net = (Number(s.montant_total) + ajouts - retours);
+                    }
                     dayTotal += net;
                     dayColis += s.nb_colis;
 

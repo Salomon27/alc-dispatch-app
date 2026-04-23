@@ -836,7 +836,11 @@
                 statut: 'Clôturé',
                 montant_total: montantFinalNet,
                 nb_colis: nbColisTotal,
-                cloture_at: new Date().toISOString()
+                completions: [...(currentSortie.completions || []), { 
+                    type: 'cloture', 
+                    date: new Date().toISOString(),
+                    montant: montantFinalNet // facultatif mais utile
+                }]
             }).eq('id', currentSortie.id);
 
             if (!error) {

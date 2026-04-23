@@ -74,8 +74,8 @@ async function loadDashboardStats() {
             // Pour les anciennes sorties, on doit calculer. 
             // Pour les nouvelles (après ma correction de clôture), s.montant_total est déjà le NET.
             // On vérifie si la sortie a été clôturée AVANT aujourd'hui 12:00 (moment de ma correction)
-            // Ou plus simple : si s.cloture_at existe, on fait confiance au montant_total.
-            if (s.cloture_at) {
+            const isNewStyle = s.completions && s.completions.some(c => c.type === 'cloture');
+            if (isNewStyle) {
                 monthlyTotal += Number(s.montant_total);
             } else {
                 const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);

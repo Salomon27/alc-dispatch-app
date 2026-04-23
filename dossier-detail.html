@@ -16,6 +16,8 @@
         .timeline-item { position: relative; margin-bottom: 2rem; }
         .timeline-item::before { content: ''; position: absolute; left: -21px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: white; border: 3px solid var(--brand-navy); z-index: 1; }
         .timeline-item.type-retour::before { border-color: var(--danger); }
+        .timeline-item.type-deduction_livraison::before { border-color: var(--brand-navy); }
+        .timeline-item.type-cloture::before { border-color: var(--success); }
         .timeline-card { background: var(--white); border: 1px solid var(--slate-200); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); }
         .colis-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-top: 0.75rem; }
         .colis-thumb { width: 100%; aspect-ratio: 1; border-radius: 6px; object-fit: cover; border: 1px solid var(--slate-100); }
@@ -105,10 +107,12 @@
             
             let brut, net;
             
-            if (s.cloture_at) {
+            const isNewStyle = s.completions && s.completions.some(c => c.type === 'cloture');
+            
+            if (isNewStyle) {
                 // Nouvelle méthode : le montant_total en base est déjà le NET
                 net = Number(s.montant_total);
-                brut = net + retours;
+                brut = net + retours + (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
             } else {
                 // Ancienne méthode : montant_total est le brut initial
                 brut = Number(s.montant_total) + ajouts;
@@ -141,8 +145,14 @@
             // Événements Compléments / Retours
             if (s.completions) {
                 s.completions.forEach(evt => {
+                    let title = "Événement";
+                    if (evt.type === 'ajout') title = 'Chargement Supplémentaire';
+                    else if (evt.type === 'retour') title = 'Colis Retourné';
+                    else if (evt.type === 'deduction_livraison') title = 'Dégagé Livraison (Colis Payé)';
+                    else if (evt.type === 'cloture') title = 'Clôture & Encaissement';
+
                     addTimelineItem(timeline, {
-                        title: evt.type === 'ajout' ? 'Chargement Supplémentaire' : 'Colis Retourné',
+                        title: title,
                         time: new Date(evt.date).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
                         amount: evt.montant,
                         desc: evt.commentaire,
