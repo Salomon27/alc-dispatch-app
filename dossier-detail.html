@@ -82,7 +82,7 @@
 
     <script type="module">
         import { SUPABASE_URL, SUPABASE_ANON_KEY } from './js/config.js';
-        import { formatFCFA, checkAuth } from './js/utils.js';
+        import { formatFCFA, checkAuth, getSession } from './js/utils.js';
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let currentSortie = null;
