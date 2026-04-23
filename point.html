@@ -887,6 +887,7 @@
             // CALCUL DU BILAN FINAL RÉEL
             const initial = Number(currentSortie.montant_total || 0);
             const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
+            const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
             const deductions = (currentSortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
             const frais = (currentSortie.completions || []).filter(c => c.type === 'frais_divers').reduce((s, c) => s + Number(c.montant), 0);
             
