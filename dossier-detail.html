@@ -17,6 +17,7 @@
         .timeline-item::before { content: ''; position: absolute; left: -21px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: white; border: 3px solid var(--brand-navy); z-index: 1; }
         .timeline-item.type-retour::before { border-color: var(--danger); }
         .timeline-item.type-deduction_livraison::before { border-color: var(--brand-navy); }
+        .timeline-item.type-frais_divers::before { border-color: var(--brand-navy); opacity: 0.7; }
         .timeline-item.type-cloture::before { border-color: var(--success); }
         .timeline-card { background: var(--white); border: 1px solid var(--slate-200); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); }
         .colis-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-top: 0.75rem; }
@@ -170,11 +171,15 @@
             if (isNewStyle) {
                 // Nouvelle méthode : le montant_total en base est déjà le NET
                 net = Number(s.montant_total);
-                brut = net + retours + (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                const deductions = (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                const frais = (s.completions || []).filter(c => c.type === 'frais_divers').reduce((sum, c) => sum + Number(c.montant), 0);
+                brut = net + retours + deductions + frais;
             } else {
                 // Ancienne méthode : montant_total est le brut initial
                 brut = Number(s.montant_total) + ajouts;
-                net = brut - retours;
+                const deductions = (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                const frais = (s.completions || []).filter(c => c.type === 'frais_divers').reduce((sum, c) => sum + Number(c.montant), 0);
+                net = brut - retours - deductions - frais;
             }
 
             document.getElementById('livreurNom').textContent = s.livreur.nom;
@@ -207,6 +212,7 @@
                     if (evt.type === 'ajout') title = 'Chargement Supplémentaire';
                     else if (evt.type === 'retour') title = 'Colis Retourné';
                     else if (evt.type === 'deduction_livraison') title = 'Dégagé Livraison (Colis Payé)';
+                    else if (evt.type === 'frais_divers') title = 'Autres Frais / Expédition';
                     else if (evt.type === 'cloture') title = 'Clôture & Encaissement';
 
                     addTimelineItem(timeline, {

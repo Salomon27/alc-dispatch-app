@@ -251,7 +251,9 @@
                     } else {
                         const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
                         const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-                        total += (Number(s.montant_total) + ajouts - retours);
+                        const deductions = (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                        const frais = (s.completions || []).filter(c => c.type === 'frais_divers').reduce((sum, c) => sum + Number(c.montant), 0);
+                        total += (Number(s.montant_total) + ajouts - retours - deductions - frais);
                     }
                 });
             }

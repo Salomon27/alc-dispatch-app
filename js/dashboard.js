@@ -80,7 +80,9 @@ async function loadDashboardStats() {
             } else {
                 const ajouts = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.montant), 0);
                 const retours = (s.completions || []).filter(c => c.type === 'retour').reduce((sum, c) => sum + Number(c.montant), 0);
-                monthlyTotal += (Number(s.montant_total) + ajouts - retours);
+                const deductions = (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                const frais = (s.completions || []).filter(c => c.type === 'frais_divers').reduce((sum, c) => sum + Number(c.montant), 0);
+                monthlyTotal += (Number(s.montant_total) + ajouts - retours - deductions - frais);
             }
         });
     }
@@ -101,7 +103,9 @@ async function loadDashboardStats() {
             const totalColis = Number(s.nb_colis || 0) + (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb || 0), 0);
             
             if (totalColis > 0) {
-                pendingTotal += (Number(s.montant_total) + ajouts - retours);
+                const deductions = (s.completions || []).filter(c => c.type === 'deduction_livraison').reduce((sum, c) => sum + Number(c.montant), 0);
+                const frais = (s.completions || []).filter(c => c.type === 'frais_divers').reduce((sum, c) => sum + Number(c.montant), 0);
+                pendingTotal += (Number(s.montant_total) + ajouts - retours - deductions - frais);
                 realPendingCount++;
             }
         });

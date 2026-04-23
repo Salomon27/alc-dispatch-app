@@ -63,8 +63,9 @@
         .action-box:active { background: var(--slate-50); }
         .action-box.red { border-color: var(--slate-200); color: var(--danger); }
         .action-box.red i { color: var(--danger); }
-        .action-box.grey { border-color: var(--slate-200); color: var(--slate-800); }
         .action-box.grey i { color: var(--slate-500); }
+        .action-box.purple { border-color: var(--slate-200); color: var(--brand-navy); }
+        .action-box.purple i { color: var(--brand-navy); }
         
         .form-panel {
             background: white;
@@ -114,7 +115,7 @@
                 </div>
             </div>
 
-            <!-- BOUTONS D'ACTION (REMPLACE LES GROS PANNEAUX) -->
+            <!-- BOUTONS D'ACTION -->
             <div class="action-grid" id="actionGrid">
                 <div class="action-box blue" onclick="togglePanel('ajoutPanel')">
                     <i data-lucide="plus-circle"></i>
@@ -124,9 +125,13 @@
                     <i data-lucide="corner-down-left"></i>
                     Déclarer un Retour
                 </div>
-                <div class="action-box grey" onclick="togglePanel('deductionPanel')" style="grid-column: span 2; border-color: var(--slate-300);">
+                <div class="action-box grey" onclick="togglePanel('deductionPanel')">
                     <i data-lucide="truck"></i>
-                    Dégager Livraison (Colis déjà payé)
+                    Dégager Livraison
+                </div>
+                <div class="action-box purple" onclick="togglePanel('fraisPanel')">
+                    <i data-lucide="minus-square" style="color: var(--brand-navy);"></i>
+                    Autres Frais / Expédition
                 </div>
             </div>
 
@@ -188,6 +193,24 @@
                 </div>
 
                 <button id="addDeductionBtn" class="btn" style="background: var(--slate-800); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">VALIDER LES DÉDUCTIONS</button>
+            </div>
+            
+            <!-- PANNEAU CACHÉ : AUTRES FRAIS / EXPEDITION -->
+            <div id="fraisPanel" class="form-panel" style="border: 1px solid var(--slate-300);">
+                <button class="close-panel" onclick="togglePanel(null)" style="color: var(--slate-500);">×</button>
+                <h4 style="color: var(--brand-navy); font-weight: 800; font-size: 0.85rem; margin-bottom: 0.5rem; text-transform: uppercase;">Autres Frais / Expédition</h4>
+                <p style="font-size: 0.7rem; color: var(--slate-500); margin-bottom: 1rem;">Déduire des frais généraux (expédition, carburant, etc.)</p>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size:0.6rem;font-weight:800;color:var(--slate-400);">MONTANT À DÉDUIRE</label>
+                    <input type="number" id="fraisAmount" placeholder="Ex: 2000" class="form-group" style="font-size:0.9rem; font-weight:700;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size:0.6rem;font-weight:800;color:var(--slate-400);">MOTIF / DESCRIPTION</label>
+                    <input type="text" id="fraisMotif" placeholder="Ex: Frais expédition Bouaké" class="form-group">
+                </div>
+
+                <button id="confirmFraisBtn" class="btn" style="background: var(--brand-navy); color: white; width: 100%; font-size: 0.75rem; font-weight: 800;">VALIDER LA DÉDUCTION</button>
             </div>
 
             <div id="recapArea" style="background: white; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
@@ -294,6 +317,7 @@
             document.getElementById('addReturnBtn').addEventListener('click', confirmReturn);
             document.getElementById('addColisBtn').addEventListener('click', addExtraColis);
             document.getElementById('addDeductionBtn').addEventListener('click', confirmDeduction);
+            document.getElementById('confirmFraisBtn').addEventListener('click', confirmFraisDeduction);
             document.getElementById('validateClotureBtn').addEventListener('click', validateCloture);
         }
 
@@ -353,13 +377,14 @@
             const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
             const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
             const deductions = (currentSortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
+            const frais = (currentSortie.completions || []).filter(c => c.type === 'frais_divers').reduce((s, c) => s + Number(c.montant), 0);
             
             let initialColisCount = Number(currentSortie.nb_colis);
             const extraColisCount = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);
             
             document.getElementById('initialAmount').textContent = formatFCFA(initial + ajouts);
             document.getElementById('initialCount').textContent = initialColisCount + extraColisCount;
-            document.getElementById('netToPay').textContent = formatFCFA((initial + ajouts) - retours - deductions);
+            document.getElementById('netToPay').textContent = formatFCFA((initial + ajouts) - retours - deductions - frais);
 
             const list = document.getElementById('eventsList');
             list.innerHTML = '';
@@ -379,8 +404,9 @@
                     if(c.type === 'ajout') eventLabel = 'Oubli Ajouté';
                     else if(c.type === 'retour') eventLabel = 'Retour Client';
                     else if(c.type === 'deduction_livraison') eventLabel = 'Livraison (Colis Payé)';
+                    else if(c.type === 'frais_divers') eventLabel = 'Frais / Expédition';
 
-                    addEventToUI(list, eventLabel, c.montant, c.nb, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
+                    addEventToUI(list, eventLabel, c.montant, c.nb || 0, c.photo_url, c.type, c.date || currentSortie.created_at, photos, c.id);
                 });
             }
             lucide.createIcons();
@@ -765,6 +791,45 @@
             btn.textContent = 'VALIDER LES DÉDUCTIONS';
         }
 
+        async function confirmFraisDeduction() {
+            const amount = document.getElementById('fraisAmount').value;
+            const motif = document.getElementById('fraisMotif').value.trim() || "Frais divers";
+            
+            if (!amount || Number(amount) <= 0) return alert("Saisissez un montant valide.");
+
+            const btn = document.getElementById('confirmFraisBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;display:inline-block;vertical-align:middle;margin-right:0.5rem;"></i>Traitement...';
+            lucide.createIcons();
+
+            const newFrais = {
+                id: Math.random().toString(36).substring(2),
+                type: 'frais_divers',
+                date: new Date().toISOString(),
+                nb: 0, // Ne concerne pas un nombre de colis
+                montant: Number(amount),
+                photo_url: null,
+                details: null,
+                commentaire: motif
+            };
+
+            const updatedCompletions = [...(currentSortie.completions || []), newFrais];
+            const { error } = await supabaseClient.from('sorties').update({ completions: updatedCompletions }).eq('id', currentSortie.id);
+
+            if (!error) {
+                currentSortie.completions = updatedCompletions;
+                document.getElementById('fraisAmount').value = '';
+                document.getElementById('fraisMotif').value = '';
+                window.togglePanel(null);
+                renderRecap();
+            } else {
+                alert('Erreur : ' + error.message);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'VALIDER LA DÉDUCTION';
+        }
+
         function resetAjoutForm() {
             document.getElementById('addAmount').value = '';
             document.getElementById('addCount').value = '';
@@ -822,10 +887,10 @@
             // CALCUL DU BILAN FINAL RÉEL
             const initial = Number(currentSortie.montant_total || 0);
             const ajouts = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.montant), 0);
-            const retours = (currentSortie.completions || []).filter(c => c.type === 'retour').reduce((s, c) => s + Number(c.montant), 0);
             const deductions = (currentSortie.completions || []).filter(c => c.type === 'deduction_livraison').reduce((s, c) => s + Number(c.montant), 0);
+            const frais = (currentSortie.completions || []).filter(c => c.type === 'frais_divers').reduce((s, c) => s + Number(c.montant), 0);
             
-            const montantFinalNet = (initial + ajouts) - retours - deductions;
+            const montantFinalNet = (initial + ajouts) - retours - deductions - frais;
             
             const initialNb = Number(currentSortie.nb_colis || 0);
             const ajoutsNb = (currentSortie.completions || []).filter(c => c.type === 'ajout').reduce((s, c) => s + Number(c.nb), 0);
