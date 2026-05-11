@@ -237,11 +237,19 @@
             listenToCashAlerts();
         }
 
-        function showCashAlert(message) {
+        function showCashAlert(message, type = 'success') {
             const toast = document.getElementById('toast-container');
-            document.getElementById('toast-msg').textContent = message;
+            const msgEl = document.getElementById('toast-msg');
+            msgEl.textContent = message;
+            
+            toast.style.background = type === 'danger' ? '#ef4444' : '#10b981';
+            toast.style.boxShadow = type === 'danger' ? '0 10px 25px rgba(239, 68, 68, 0.4)' : '0 10px 25px rgba(16, 185, 129, 0.4)';
+            
             toast.classList.add('show');
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]); // Caisse enregistreuse effect
+            if (navigator.vibrate) {
+                if (type === 'danger') navigator.vibrate([200, 100, 200]);
+                else navigator.vibrate([100, 50, 100]);
+            }
             
             setTimeout(() => {
                 toast.classList.remove('show');
@@ -268,6 +276,21 @@
                     // Dans tous les cas (Suppression, Ajout, Modif), on rafraîchit les compteurs
                     loadBossStats();
                     loadMoneyOutside();
+
+                    // Si c'est une mise à jour de suivi de livraison
+                    if (payload.eventType === 'UPDATE' && payload.new.suivi_livraison) {
+                        const oldSuivi = payload.old.suivi_livraison || {};
+                        const newSuivi = payload.new.suivi_livraison || {};
+                        
+                        // Détecter si un nouveau retour a été ajouté
+                        const newReturns = Object.keys(newSuivi).filter(k => newSuivi[k] === 'retourne' && oldSuivi[k] !== 'retourne');
+                        
+                        if (newReturns.length > 0) {
+                            const { data: livreur } = await supabaseClient.from('livreurs').select('nom').eq('id', payload.new.livreur_id).single();
+                            const nom = livreur ? livreur.nom : 'Un livreur';
+                            showCashAlert(`Alerte : Nouveau RETOUR signalé par ${nom} !`, 'danger');
+                        }
+                    }
                 })
                 .subscribe();
         }
@@ -375,7 +398,7 @@
             // Tournées actuelles EN COURS (peu importe la date)
             const { data: activeRuns } = await supabaseClient
                 .from('sorties')
-                .select('id, nb_colis, montant_total, completions, livreur:livreurs(nom)')
+                .select('id, nb_colis, montant_total, completions, suivi_livraison, livreur:livreurs(nom)')
                 .eq('statut', 'En Cours');
             
             let moneyOutside = 0;
@@ -393,8 +416,14 @@
                     const ajoutsNb = (s.completions || []).filter(c => c.type === 'ajout').reduce((sum, c) => sum + Number(c.nb), 0);
                     
                     const currentMontant = Number(s.montant_total) + ajouts;
-                    const currentNb = Number(s.nb_colis) + ajoutsNb;
+                    const totalNb = Number(s.nb_colis) + ajoutsNb;
                     const nom = s.livreur?.nom || 'Inconnu';
+
+                    // Calcul suivi livraison
+                    const suivi = s.suivi_livraison || {};
+                    const nbLivre = Object.values(suivi).filter(v => v === 'livre').length;
+                    const nbRetour = Object.values(suivi).filter(v => v === 'retourne').length;
+                    const progPercent = totalNb > 0 ? Math.round(((nbLivre + nbRetour) / totalNb) * 100) : 0;
 
                     moneyOutside += currentMontant; // Argent potentiel dehors !
 
@@ -404,17 +433,24 @@
                     a.style.textDecoration = 'none';
                     a.className = 'podium-item'; 
                     a.style.margin = '0.5rem 1.5rem';
+                    a.style.flexDirection = 'column';
+                    a.style.alignItems = 'stretch';
                     a.innerHTML = `
-                        <div style="background: #eff6ff; padding: 0.5rem; border-radius: 12px; margin-right: 1rem;">
-                            <i data-lucide="package" style="color: var(--brand-blue); width: 20px;"></i>
+                        <div style="display:flex; align-items:center;">
+                            <div style="background: #eff6ff; padding: 0.5rem; border-radius: 12px; margin-right: 1rem;">
+                                <i data-lucide="package" style="color: var(--brand-blue); width: 20px;"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <h4 style="font-size: 0.85rem; font-weight: 800; color: var(--brand-navy); margin: 0;">${nom}</h4>
+                                <p style="font-size: 0.65rem; color: var(--slate-500); margin-top: 0.2rem;">${nbLivre} livrés • ${nbRetour} retours • ${totalNb} au total</p>
+                            </div>
+                            <div style="text-align: right; display:flex; align-items:center; gap:0.5rem;">
+                                <h4 style="font-size: 0.95rem; font-weight: 900; color: var(--brand-navy); margin: 0;">${formatFCFA(currentMontant)}</h4>
+                                <i data-lucide="chevron-right" style="width: 14px; color: var(--slate-300);"></i>
+                            </div>
                         </div>
-                        <div style="flex: 1;">
-                            <h4 style="font-size: 0.85rem; font-weight: 800; color: var(--brand-navy); margin: 0;">${nom}</h4>
-                            <p style="font-size: 0.65rem; color: var(--slate-500); margin-top: 0.2rem;">${currentNb} colis en livraison</p>
-                        </div>
-                        <div style="text-align: right; display:flex; align-items:center; gap:0.5rem;">
-                            <h4 style="font-size: 0.95rem; font-weight: 900; color: var(--brand-navy); margin: 0;">${formatFCFA(currentMontant)}</h4>
-                            <i data-lucide="chevron-right" style="width: 14px; color: var(--slate-300);"></i>
+                        <div class="progress-bar-bg" style="margin-top:0.75rem; height:6px;">
+                            <div class="progress-fill" style="width: ${progPercent}%; background: ${progPercent === 100 ? 'var(--success)' : 'var(--brand-blue)'};"></div>
                         </div>
                     `;
                     activeList.appendChild(a);

@@ -469,9 +469,29 @@
             const role = localStorage.getItem('alc_role');
             
             if(photos && photos.length > 0) {
-                photos.forEach(p => {
+                const suivi = currentSortie.suivi_livraison || {};
+                
+                photos.forEach((p, idx) => {
                     const pic = p.photo_url || p.photo;
                     if(!pic) return;
+                    
+                    // Trouver l'ID du colis pour le suivi
+                    // Les IDs sont construits comme init-X ou add-X-Y
+                    // On essaie de faire une correspondance par photo si l'ID n'est pas explicite
+                    let colisId = p.id;
+                    if (!colisId) {
+                        // Fallback: recherche par URL de photo
+                        if (currentSortie.details_colis) {
+                            const initIdx = currentSortie.details_colis.findIndex(c => c.photo_url === pic || c.photo === pic);
+                            if (initIdx !== -1) colisId = `init-${initIdx}`;
+                        }
+                    }
+
+                    const status = suivi[colisId];
+                    const statusBadge = status === 'livre' ? 
+                        '<div style="position:absolute; top:10px; left:10px; background:#22c55e; color:white; padding:2px 8px; border-radius:4px; font-size:0.6rem; font-weight:900;">LIVREUR : LIVRÉ</div>' : 
+                        (status === 'retourne' ? '<div style="position:absolute; top:10px; left:10px; background:#ef4444; color:white; padding:2px 8px; border-radius:4px; font-size:0.6rem; font-weight:900;">LIVREUR : RETOUR</div>' : '');
+
                     const card = document.createElement('div');
                     card.style.background = 'white';
                     card.style.padding = '0.5rem';
@@ -479,6 +499,7 @@
                     card.style.width = '100%';
                     card.style.maxWidth = '350px';
                     card.style.textAlign = 'center';
+                    card.style.position = 'relative';
                     
                     const label = (p.commentaire || '') + (p.valeur ? ` - ${formatFCFA(p.valeur)}` : '');
                     
@@ -486,6 +507,7 @@
                         `<button onclick="deleteIndividualColis('${pic}')" style="background:var(--danger); color:white; border:none; border-radius:6px; padding:0.4rem 1rem; font-size:0.7rem; font-weight:800; cursor:pointer; margin-top:0.75rem; width:100%;">SUPPRIMER CE COLIS</button>` : '';
                     
                     card.innerHTML = `
+                        ${statusBadge}
                         <img src="${pic}" style="width: 100%; border-radius: 8px; margin-bottom: 0.5rem;">
                         <p style="font-size: 0.75rem; font-weight: 800; color: var(--brand-navy); text-align: center; margin: 0;">${label}</p>
                         ${deleteBtnHtml}
@@ -600,19 +622,40 @@
             liste.innerHTML = '';
             let allColis = [];
 
-            // 1. Colis du départ initial
-            (currentSortie.details_colis || []).forEach(c => {
-                if (!c.photo_url && !c.photo) return;
-                allColis.push({ id: 'dep_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'depart' });
+            // 1. Colis du départ initial (Même ID que livreur-app: init-X)
+            (currentSortie.details_colis || []).forEach((c, idx) => {
+                allColis.push({ 
+                    id: `init-${idx}`, 
+                    photo: c.photo_url || c.photo, 
+                    valeur: Number(c.valeur || 0), 
+                    commentaire: c.commentaire || '', 
+                    source: 'depart' 
+                });
             });
 
-            // 2. Colis des ajouts
-            (currentSortie.completions || []).filter(c => c.type === 'ajout' && Number(c.nb || 0) > 0).forEach(comp => {
-                const details = comp.details || [{ photo_url: comp.photo_url, valeur: comp.montant, commentaire: comp.commentaire }];
-                details.forEach(c => {
-                    if (!c.photo_url && !c.photo) return;
-                    allColis.push({ id: 'ajout_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || comp.montant || 0), commentaire: c.commentaire || '', source: 'ajout', compId: comp.id });
-                });
+            // 2. Colis des ajouts (Même ID que livreur-app: add-cIdx-idx)
+            (currentSortie.completions || []).forEach((comp, cIdx) => {
+                if (comp.type === 'ajout' && Number(comp.nb || 0) > 0) {
+                    if (comp.details) {
+                        comp.details.forEach((c, idx) => {
+                            allColis.push({ 
+                                id: `add-${cIdx}-${idx}`, 
+                                photo: c.photo_url || c.photo, 
+                                valeur: Number(c.valeur || 0), 
+                                commentaire: c.commentaire || '', 
+                                source: 'ajout' 
+                            });
+                        });
+                    } else {
+                        allColis.push({ 
+                            id: `add-${cIdx}`, 
+                            photo: comp.photo_url, 
+                            valeur: Number(comp.montant || 0), 
+                            commentaire: comp.commentaire || '', 
+                            source: 'ajout' 
+                        });
+                    }
+                }
             });
 
             if (allColis.length === 0) {
@@ -621,13 +664,20 @@
             }
 
             allColis.forEach(c => {
+                const suivi = currentSortie.suivi_livraison || {};
+                const status = suivi[c.id];
+                const isMarkedReturn = status === 'retourne';
+                const statusInfo = status === 'livre' ? 
+                    '<span style="color:#22c55e; font-size:0.5rem; font-weight:900;">[MARQUÉ LIVRÉ]</span>' : 
+                    (isMarkedReturn ? '<span style="color:#ef4444; font-size:0.5rem; font-weight:900;">[MARQUÉ RETOUR]</span>' : '');
+
                 const row = document.createElement('label');
-                row.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid #fee2e2; border-radius:8px; cursor:pointer; background:white;';
+                row.style.cssText = `display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid ${isMarkedReturn ? '#ef4444' : '#fee2e2'}; border-radius:8px; cursor:pointer; background:${isMarkedReturn ? '#fef2f2' : 'white'};`;
                 row.innerHTML = `
-                    <input type="checkbox" data-id="${c.id}" data-valeur="${c.valeur}" style="width:18px;height:18px;accent-color:var(--danger); flex-shrink:0;">
+                    <input type="checkbox" data-id="${c.id}" data-valeur="${c.valeur}" ${isMarkedReturn ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--danger); flex-shrink:0;">
                     <img src="${c.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px; flex-shrink:0;">
                     <div style="flex:1;">
-                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${formatFCFA(c.valeur)}</p>
+                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${formatFCFA(c.valeur)} ${statusInfo}</p>
                         <p style="font-size:0.6rem;color:var(--slate-500);margin:0;">${c.commentaire || '—'}</p>
                     </div>
                 `;
@@ -637,6 +687,7 @@
 
             updateRetourTotal();
         }
+
 
         function updateRetourTotal() {
             let total = 0;
@@ -698,18 +749,21 @@
             let allColis = [];
 
             // 1. Colis du départ initial
-            (currentSortie.details_colis || []).forEach(c => {
-                if (!c.photo_url && !c.photo) return;
-                allColis.push({ id: 'dep_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'depart' });
+            (currentSortie.details_colis || []).forEach((c, idx) => {
+                allColis.push({ id: `init-${idx}`, photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'depart' });
             });
 
             // 2. Colis des ajouts
-            (currentSortie.completions || []).filter(c => c.type === 'ajout' && Number(c.nb || 0) > 0).forEach(comp => {
-                const details = comp.details || [{ photo_url: comp.photo_url, valeur: comp.montant, commentaire: comp.commentaire }];
-                details.forEach(c => {
-                    if (!c.photo_url && !c.photo) return;
-                    allColis.push({ id: 'ajout_' + (c.photo_url || c.photo), photo: c.photo_url || c.photo, valeur: Number(c.valeur || comp.montant || 0), commentaire: c.commentaire || '', source: 'ajout', compId: comp.id });
-                });
+            (currentSortie.completions || []).forEach((comp, cIdx) => {
+                if (comp.type === 'ajout' && Number(comp.nb || 0) > 0) {
+                    if (comp.details) {
+                        comp.details.forEach((c, idx) => {
+                            allColis.push({ id: `add-${cIdx}-${idx}`, photo: c.photo_url || c.photo, valeur: Number(c.valeur || 0), commentaire: c.commentaire || '', source: 'ajout' });
+                        });
+                    } else {
+                        allColis.push({ id: `add-${cIdx}`, photo: comp.photo_url, valeur: Number(comp.montant || 0), commentaire: comp.commentaire || '', source: 'ajout' });
+                    }
+                }
             });
 
             if (allColis.length === 0) {
@@ -721,12 +775,19 @@
             allColis.sort((a, b) => a.valeur - b.valeur);
 
             allColis.forEach(c => {
+                const suivi = currentSortie.suivi_livraison || {};
+                const status = suivi[c.id];
+                const isMarkedDelivered = status === 'livre';
+                const statusInfo = isMarkedDelivered ? 
+                    '<span style="color:#22c55e; font-size:0.5rem; font-weight:900;">[LIVRÉ]</span>' : 
+                    (status === 'retourne' ? '<span style="color:#ef4444; font-size:0.5rem; font-weight:900;">[RETOUR]</span>' : '');
+
                 const row = document.createElement('div');
-                row.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid var(--slate-100); border-radius:12px; background:white;';
+                row.style.cssText = `display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border:1px solid ${isMarkedDelivered ? '#22c55e' : 'var(--slate-100)'}; border-radius:12px; background:${isMarkedDelivered ? '#f0fdf4' : 'white'};`;
                 row.innerHTML = `
                     <img src="${c.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px; flex-shrink:0;">
                     <div style="flex:1;">
-                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${c.valeur === 0 ? 'PAYÉ' : formatFCFA(c.valeur)}</p>
+                        <p style="font-size:0.75rem;font-weight:800;color:var(--brand-navy);margin:0;">${c.valeur === 0 ? 'PAYÉ' : formatFCFA(c.valeur)} ${statusInfo}</p>
                         <p style="font-size:0.6rem;color:var(--slate-500);margin:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.commentaire || '—'}</p>
                     </div>
                     <div style="width:100px;">
@@ -905,7 +966,8 @@
                 completions: [...(currentSortie.completions || []), { 
                     type: 'cloture', 
                     date: new Date().toISOString(),
-                    montant: montantFinalNet // facultatif mais utile
+                    montant: montantFinalNet,
+                    suivi_final: currentSortie.suivi_livraison || {} // On archive le détail ici
                 }]
             }).eq('id', currentSortie.id);
 

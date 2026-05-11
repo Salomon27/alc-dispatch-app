@@ -69,21 +69,30 @@
         #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
         #lightbox .close { position: absolute; top: 20px; right: 20px; color: white; cursor: pointer; }
 
-        /* ÉTAT LIVRÉ (INTERNE LIVREUR) */
-        .colis-card.done { opacity: 0.6; border-color: #22c55e; background: #f0fdf4; }
-        .colis-card.done .colis-price { color: #15803d; text-decoration: line-through; }
-        .checkmark {
-            position: absolute; top: 8px; left: 8px; background: #22c55e; color: white;
-            width: 20px; height: 20px; border-radius: 50%; display: none; align-items: center; justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 10;
+        /* ÉTAT LIVRÉ / RETOURNÉ (INTERNE LIVREUR) */
+        .colis-card.done { border-color: #22c55e; background: #f0fdf4; }
+        .colis-card.returned { border-color: #ef4444; background: #fef2f2; }
+        
+        .colis-card.done .colis-price { color: #15803d; }
+        .colis-card.returned .colis-price { color: #b91c1c; }
+
+        .status-badge {
+            position: absolute; top: 8px; left: 8px; color: white;
+            padding: 2px 6px; border-radius: 4px; display: none; align-items: center; justify-content: center;
+            font-size: 0.5rem; font-weight: 900; text-transform: uppercase; z-index: 10;
         }
-        .colis-card.done .checkmark { display: flex; }
-        .deliver-btn { 
-            background: white; border: 1px solid var(--slate-200); border-radius: 6px; 
-            padding: 4px; display: flex; align-items: center; gap: 4px; font-size: 0.6rem; 
-            font-weight: 800; color: var(--slate-600); margin-top: 0.5rem; width: 100%; justify-content: center;
+        .colis-card.done .status-badge.delivered { display: flex; background: #22c55e; }
+        .colis-card.returned .status-badge.returned { display: flex; background: #ef4444; }
+
+        .action-btns { display: flex; gap: 4px; margin-top: 0.5rem; }
+        .deliver-btn, .return-btn { 
+            flex: 1; background: white; border: 1px solid var(--slate-200); border-radius: 6px; 
+            padding: 6px 4px; display: flex; align-items: center; gap: 4px; font-size: 0.55rem; 
+            font-weight: 800; color: var(--slate-600); justify-content: center;
         }
+        
         .colis-card.done .deliver-btn { background: #22c55e; border-color: #22c55e; color: white; }
+        .colis-card.returned .return-btn { background: #ef4444; border-color: #ef4444; color: white; }
 
         /* TOAST NOTIFICATION */
         #toast-container {
@@ -380,17 +389,24 @@
             const list = document.getElementById('colisList');
             list.innerHTML = '';
             
-            // Get local delivery status
-            const deliveryStatusCache = JSON.parse(localStorage.getItem(`alc_delivery_status_${sortie.id}`) || '{}');
+            // Get combined delivery status (Supabase + Local fallback)
+            const deliveryStatusCache = {
+                ...(sortie.suivi_livraison || {}),
+                ...JSON.parse(localStorage.getItem(`alc_delivery_status_${sortie.id}`) || '{}')
+            };
 
             allColis.forEach(c => {
-                const isDone = deliveryStatusCache[c.id] || false;
+                const status = deliveryStatusCache[c.id] || null; // 'livre', 'retourne' or null
+                const isDone = status === 'livre';
+                const isReturned = status === 'retourne';
+
                 const card = document.createElement('div');
-                card.className = `colis-card ${isDone ? 'done' : ''}`;
+                card.className = `colis-card ${isDone ? 'done' : (isReturned ? 'returned' : '')}`;
                 card.id = `card-${c.id}`;
                 card.innerHTML = `
                     <div style="position:relative; background:#eee; aspect-ratio:1; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        <div class="checkmark"><i data-lucide="check" style="width:12px;"></i></div>
+                        <div class="status-badge delivered">LIVRÉ</div>
+                        <div class="status-badge returned">RETOURNÉ</div>
                         <img src="${c.photo}" class="colis-img" onclick="openZoom('${c.photo}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
                         <div style="display:none; flex-direction:column; align-items:center; color:#94a3b8; font-size:0.6rem; font-weight:700;">
                             <i data-lucide="image-off" style="width:24px; margin-bottom:4px;"></i>
@@ -400,10 +416,16 @@
                     <div class="colis-info">
                         <div class="colis-price" onclick="openZoom('${c.photo}')">${c.valeur === 0 ? '<span style="color:var(--success)">PAYÉ</span>' : formatFCFA(c.valeur)}</div>
                         <div class="colis-desc" onclick="openZoom('${c.photo}')">${c.desc}</div>
-                        <button class="deliver-btn" onclick="toggleDelivered('${sortie.id}', '${c.id}')">
-                            <i data-lucide="${isDone ? 'rotate-ccw' : 'check-circle'}" style="width:12px;"></i>
-                            <span>${isDone ? 'Annuler' : 'Livré'}</span>
-                        </button>
+                        <div class="action-btns">
+                            <button class="deliver-btn" onclick="updateStatus('${sortie.id}', '${c.id}', 'livre')">
+                                <i data-lucide="check-circle" style="width:12px;"></i>
+                                <span>${isDone ? 'OK' : 'Livré'}</span>
+                            </button>
+                            <button class="return-btn" onclick="updateStatus('${sortie.id}', '${c.id}', 'retourne')">
+                                <i data-lucide="x-circle" style="width:12px;"></i>
+                                <span>${isReturned ? 'OK' : 'Retour'}</span>
+                            </button>
+                        </div>
                     </div>
                 `;
                 list.appendChild(card);
@@ -411,29 +433,45 @@
             lucide.createIcons();
         }
 
-        window.toggleDelivered = (sortieId, colisId) => {
+        window.updateStatus = async (sortieId, colisId, newStatus) => {
             const cacheKey = `alc_delivery_status_${sortieId}`;
             const deliveryStatusCache = JSON.parse(localStorage.getItem(cacheKey) || '{}');
             
-            // Toggle
-            const newState = !deliveryStatusCache[colisId];
-            deliveryStatusCache[colisId] = newState;
+            // Si on clique sur le même bouton, on annule (on repasse à null)
+            const finalStatus = (deliveryStatusCache[colisId] === newStatus) ? null : newStatus;
             
-            // Save
+            // 1. Mise à jour Locale (Instantanée)
+            if (finalStatus) deliveryStatusCache[colisId] = finalStatus;
+            else delete deliveryStatusCache[colisId];
+            
             localStorage.setItem(cacheKey, JSON.stringify(deliveryStatusCache));
             
-            // UI Update
+            // 2. Mise à jour UI (Instantanée)
             const card = document.getElementById(`card-${colisId}`);
-            if (newState) card.classList.add('done');
-            else card.classList.remove('done');
+            card.className = `colis-card ${finalStatus === 'livre' ? 'done' : (finalStatus === 'retourne' ? 'returned' : '')}`;
             
-            const btn = card.querySelector('.deliver-btn');
-            btn.innerHTML = `
-                <i data-lucide="${newState ? 'rotate-ccw' : 'check-circle'}" style="width:12px;"></i>
-                <span>${newState ? 'Annuler' : 'Livré'}</span>
-            `;
-            lucide.createIcons();
+            const dBtn = card.querySelector('.deliver-btn');
+            const rBtn = card.querySelector('.return-btn');
+            
+            dBtn.querySelector('span').textContent = (finalStatus === 'livre') ? 'OK' : 'Livré';
+            rBtn.querySelector('span').textContent = (finalStatus === 'retourne') ? 'OK' : 'Retour';
+            
             if (navigator.vibrate) navigator.vibrate(50);
+
+            // 3. Synchronisation Supabase (Asynchrone)
+            try {
+                // On récupère d'abord l'état actuel sur le serveur pour fusionner
+                const { data: currentSortie } = await supabaseClient.from('sorties').select('suivi_livraison').eq('id', sortieId).single();
+                const currentSuivi = currentSortie?.suivi_livraison || {};
+                
+                if (finalStatus) currentSuivi[colisId] = finalStatus;
+                else delete currentSuivi[colisId];
+
+                await supabaseClient.from('sorties').update({ suivi_livraison: currentSuivi }).eq('id', sortieId);
+                console.log("Synchronisation réussie !");
+            } catch (err) {
+                console.error("Échec de la synchronisation (mode hors-ligne probable)", err);
+            }
         };
 
         window.openZoom = (src) => {
