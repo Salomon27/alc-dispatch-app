@@ -115,30 +115,6 @@
             cursor: pointer;
         }
 
-        /* ANNONCE MAJ */
-        .maj-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);
-            z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1.5rem;
-        }
-        .maj-card {
-            background: white; border-radius: 24px; padding: 2rem; width: 100%; max-width: 400px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative;
-            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .maj-card h2 { color: var(--brand-navy); font-weight: 900; font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-        .maj-item { display: flex; gap: 1rem; margin-bottom: 1rem; text-align: left; }
-        .maj-icon { background: #eff6ff; color: var(--brand-blue); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .maj-text b { display: block; font-size: 0.85rem; color: var(--brand-navy); }
-        .maj-text span { font-size: 0.75rem; color: var(--slate-500); }
-        .maj-close { background: var(--brand-navy); color: white; border: none; width: 100%; padding: 1rem; border-radius: 12px; font-weight: 800; margin-top: 1rem; cursor: pointer; }
-        
-        .actu-btn {
-            background: #eff6ff; color: var(--brand-blue); border: 1px solid #dbeafe;
-            padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.65rem; font-weight: 800;
-            display: flex; align-items: center; gap: 0.4rem; cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -238,28 +214,44 @@
 
         <!-- MODAL ANNONCE MAJ -->
         <div id="majOverlay" class="maj-overlay">
-            <div class="maj-card">
-                <h2><i data-lucide="sparkles"></i> Mise à Jour Boss</h2>
-                <p style="font-size: 0.8rem; color: var(--slate-600); margin-bottom: 1.5rem;">Optimisation du contrôle de gestion et suivi temps réel.</p>
-                
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="truck" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Suivi en Direct</b><span>Visualisez la progression des livreurs sur le terrain.</span></div>
-                </div>
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="calculator" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Bilan Automatisé</b><span>Les retours sont pré-calculés pour faciliter le point.</span></div>
-                </div>
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="bell" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Alertes Instantanées</b><span>Soyez notifiée immédiatement en cas de retour colis.</span></div>
+            <div class="maj-card" style="position:relative; overflow:hidden; max-height:90vh;">
+                <!-- VUE PRINCIPALE -->
+                <div id="majMainView" style="overflow-y:auto; max-height: calc(90vh - 4rem);">
+                    <h2><i data-lucide="sparkles"></i> Mise à Jour !</h2>
+                    <p style="font-size:0.78rem; color:var(--slate-500); margin-bottom:1.25rem; line-height:1.5;">Contrôle de gestion et suivi temps réel. Appuyez sur chaque ligne pour plus de détails.</p>
+
+                    <div class="maj-item" onclick="openMajDetail('tracking')">
+                        <div class="maj-icon"><i data-lucide="truck" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Suivi en Direct</b><span>Visualisez la progression des livreurs sur le terrain.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+                    <div class="maj-item" onclick="openMajDetail('billing')">
+                        <div class="maj-icon"><i data-lucide="calculator" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Bilan Automatisé</b><span>Les retours sont pré-calculés pour faciliter le point.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+                    <div class="maj-item" onclick="openMajDetail('alerts')">
+                        <div class="maj-icon"><i data-lucide="bell" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Alertes Instantanées</b><span>Soyez notifiée immédiatement en cas de retour colis.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+
+                    <div style="border-top:1px solid #eee; padding-top:1rem; margin-top:0.5rem; text-align:center;">
+                        <p style="font-size:0.65rem; font-weight:800; color:var(--slate-400); text-transform:uppercase;">Signé : CEO Mr Salomon</p>
+                    </div>
+                    <button class="maj-close" onclick="closeMajModal()">C'EST COMPRIS</button>
                 </div>
 
-                <div style="border-top: 1px solid #eee; padding-top: 1rem; margin-top: 1rem; text-align: center;">
-                    <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400); text-transform: uppercase;">Signé : CEO Mr Salomon</p>
+                <!-- PANNEAU DÉTAIL (slide-in) -->
+                <div id="majDetailPanel" class="maj-detail-panel">
+                    <div class="maj-detail-header">
+                        <button class="detail-back-btn" onclick="closeMajDetail()">
+                            <i data-lucide="arrow-left" style="width:15px;"></i>
+                        </button>
+                        <h3 id="majDetailTitle" style="font-size:0.9rem; font-weight:900; color:var(--brand-navy); margin:0;"></h3>
+                    </div>
+                    <div class="maj-detail-body" id="majDetailBody"></div>
                 </div>
-
-                <button class="maj-close" onclick="closeMajModal()">C'EST COMPRIS</button>
             </div>
         </div>
     </main>
@@ -291,6 +283,76 @@
                 const modal = document.getElementById('majOverlay');
                 if (modal) modal.style.display = 'none';
                 localStorage.setItem('alc_last_maj_boss_v2', 'true');
+            };
+
+            window.openMajDetail = (type) => {
+                const panel = document.getElementById('majDetailPanel');
+                const title = document.getElementById('majDetailTitle');
+                const body = document.getElementById('majDetailBody');
+                
+                const content = {
+                    tracking: {
+                        title: "Suivi en Direct",
+                        icon: "truck",
+                        hero: "Gardez un œil sur votre flotte sans quitter votre bureau.",
+                        steps: [
+                            { t: "Barres de progression", d: "Chaque tournée affiche un pourcentage de complétion en temps réel." },
+                            { t: "Localisation (Zone)", d: "Sachez exactement dans quelle zone chaque livreur opère." },
+                            { t: "Transparence", d: "Les heures de passage et de livraison sont enregistrées au fur et à mesure." }
+                        ],
+                        tip: "<b>Conseil :</b> Idéal pour répondre aux clients qui appellent pour savoir où en est leur colis."
+                    },
+                    billing: {
+                        title: "Bilan Automatisé",
+                        icon: "calculator",
+                        hero: "Sécurisez vos recettes et simplifiez la comptabilité.",
+                        steps: [
+                            { t: "Calcul Net", d: "Le système déduit automatiquement les retours et les frais du CA brut." },
+                            { t: "Validation Gérant", d: "Vous voyez qui a validé le point et à quelle heure." },
+                            { t: "Zéro Papier", d: "Plus besoin de calculatrices manuelles, tout est certifié par le système." }
+                        ],
+                        tip: "<b>Info :</b> Les archives sont conservées indéfiniment pour vos audits futurs."
+                    },
+                    alerts: {
+                        title: "Alertes Instantanées",
+                        icon: "bell",
+                        hero: "Réagissez immédiatement aux incidents de parcours.",
+                        steps: [
+                            { t: "Notification Retour", d: "Soyez prévenue dès qu'un livreur marque un colis en retour." },
+                            { t: "Vibration Alerte", d: "Votre mobile vous alerte discrètement lors des clôtures de point." },
+                            { t: "Sécurité Cash", d: "Surveillez les montants collectés sur le terrain en un coup d'œil." }
+                        ],
+                        tip: "<b>Note :</b> Les alertes rouges indiquent une action nécessitant votre attention immédiate."
+                    }
+                };
+
+                const data = content[type];
+                title.textContent = data.title;
+                body.innerHTML = `
+                    <div class="detail-hero">
+                        <div class="detail-hero-icon"><i data-lucide="${data.icon}" style="width:24px;"></i></div>
+                        <h3>${data.title}</h3>
+                        <p>${data.hero}</p>
+                    </div>
+                    <div class="detail-section-label">Vision Administrative</div>
+                    ${data.steps.map((s, i) => `
+                        <div class="detail-step">
+                            <div class="step-num">${i+1}</div>
+                            <div class="step-content">
+                                <h4>${s.t}</h4>
+                                <p>${s.d}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <div class="detail-tip">${data.tip}</div>
+                `;
+                
+                panel.classList.add('open');
+                lucide.createIcons();
+            };
+
+            window.closeMajDetail = () => {
+                document.getElementById('majDetailPanel').classList.remove('open');
             };
 
             // Check for MAJ Announcement

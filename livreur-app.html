@@ -18,10 +18,11 @@
         .header-livreur {
             background: var(--brand-navy);
             color: white;
-            padding: 2.5rem 1.5rem 2.5rem 1.5rem;
-            border-bottom-left-radius: 24px;
-            border-bottom-right-radius: 24px;
+            padding: 1.5rem 1.25rem 3rem 1.25rem;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
             margin-bottom: 1.5rem;
+            position: relative;
         }
 
         .profile-section {
@@ -36,22 +37,32 @@
         }
 
         .versement-card {
-            background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid var(--slate-100);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03); text-align: center; margin-top: -3rem;
-            position: relative; z-index: 10; margin-left: 1.5rem; margin-right: 1.5rem;
+            background: white; border-radius: 20px; padding: 1.75rem 1.5rem; border: 1px solid var(--slate-100);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05); 
+            text-align: center; margin-top: -3.5rem;
+            position: relative; z-index: 10; margin-left: 1.25rem; margin-right: 1.25rem;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
         .colis-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; padding: 1.5rem;
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
+            gap: 0.75rem; 
+            padding: 1rem;
         }
         .colis-card {
-            background: white; border: 1px solid var(--slate-200); border-radius: 12px; overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            background: white; border: 1px solid var(--slate-100); border-radius: 16px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; flex-direction: column;
         }
-        .colis-img { width: 100%; aspect-ratio: 1; object-fit: cover; }
-        .colis-info { padding: 0.75rem; }
-        .colis-price { font-weight: 900; color: var(--brand-navy); font-size: 0.9rem; }
-        .colis-desc { font-size: 0.65rem; color: var(--slate-500); font-weight: 600; margin-top: 0.2rem; }
+        .colis-card:active { transform: scale(0.98); }
+        .colis-img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #f1f5f9; }
+        .colis-info { padding: 0.6rem; flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .colis-price { font-weight: 900; color: var(--brand-navy); font-size: 0.95rem; letter-spacing: -0.01em; }
+        .colis-desc { font-size: 0.65rem; color: var(--slate-500); font-weight: 600; margin-top: 0.2rem; line-height: 1.3; }
 
         .empty-state { text-align: center; padding: 4rem 2rem; color: var(--slate-400); }
 
@@ -84,12 +95,21 @@
         .colis-card.done .status-badge.delivered { display: flex; background: #22c55e; }
         .colis-card.returned .status-badge.returned { display: flex; background: #ef4444; }
 
-        .action-btns { display: flex; gap: 4px; margin-top: 0.5rem; }
+        .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 0.6rem; width: 100%; }
         .deliver-btn, .return-btn { 
-            flex: 1; background: white; border: 1px solid var(--slate-200); border-radius: 6px; 
-            padding: 6px 4px; display: flex; align-items: center; gap: 4px; font-size: 0.55rem; 
-            font-weight: 800; color: var(--slate-600); justify-content: center;
+            background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 6px; 
+            padding: 6px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; 
+            font-size: 0.5rem; font-weight: 900; color: var(--slate-600); justify-content: center;
+            transition: all 0.2s;
         }
+        
+        .deliver-btn i, .return-btn i { width: 14px; height: 14px; }
+        
+        .deliver-btn:active { background: #dcfce7; color: #166534; }
+        .return-btn:active { background: #fee2e2; color: #991b1b; }
+
+        .colis-card.done { border-color: #22c55e; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.1); }
+        .colis-card.returned { border-color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1); }
         
         .colis-card.done .deliver-btn { background: #22c55e; border-color: #22c55e; color: white; }
         .colis-card.returned .return-btn { background: #ef4444; border-color: #ef4444; color: white; }
@@ -105,29 +125,6 @@
         }
         #toast-container.show { top: 20px; }
 
-        /* ANNONCE MAJ */
-        .maj-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);
-            z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1.5rem;
-        }
-        .maj-card {
-            background: white; border-radius: 24px; padding: 2rem; width: 100%; max-width: 400px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative;
-            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .maj-card h2 { color: var(--brand-navy); font-weight: 900; font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-        .maj-item { display: flex; gap: 1rem; margin-bottom: 1rem; text-align: left; }
-        .maj-icon { background: #eff6ff; color: var(--brand-blue); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .maj-text b { display: block; font-size: 0.85rem; color: var(--brand-navy); }
-        .maj-text span { font-size: 0.75rem; color: var(--slate-500); }
-        .maj-close { background: var(--brand-navy); color: white; border: none; width: 100%; padding: 1rem; border-radius: 12px; font-weight: 800; margin-top: 1rem; cursor: pointer; }
-        
-        .actu-badge {
-            background: rgba(255,255,255,0.1);
-            color: white; padding: 0.5rem; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.6rem; font-weight: 800;
-        }
     </style>
 </head>
 <body>
@@ -143,30 +140,34 @@
     <main style="padding-bottom: 6rem;">
         <!-- VUE COLIS -->
         <div id="view-colis">
-            <div class="header-livreur" style="padding: 1.5rem 1.5rem 2.5rem 1.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
-                            <h2 id="dashName" style="font-size: 1.1rem; font-weight: 900; margin: 0;">--</h2>
-                            <div class="actu-badge" onclick="showMajModal()">
-                                <i data-lucide="megaphone" style="width: 12px;"></i>
-                                ACTU
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem; opacity: 0.8;">
-                            <i data-lucide="map-pin" style="width: 10px;"></i>
-                            <span id="dashPrincipalZone" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">--</span>
+            <div class="header-livreur" style="padding-top: 1.25rem;">
+                <!-- RANGÉE ACTIONS (Espace à gauche pour Menu/Refresh) -->
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem; min-height: 36px;">
+                    <div id="logoutBtn" onclick="import('./js/utils.js').then(m=>m.logout())" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #fca5a5; width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <i data-lucide="log-out" style="width: 16px;"></i>
+                    </div>
+                </div>
+
+                <!-- RANGÉE INFOS UTILISATEUR (Swapped positions) -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="actu-badge" onclick="showMajModal()" style="background: white; color: var(--brand-navy); padding: 0.4rem 0.8rem; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <i data-lucide="megaphone" style="width: 14px;"></i>
+                        <span style="font-size: 0.65rem; font-weight: 900;">ACTU</span>
+                    </div>
+
+                    <div style="text-align: right;">
+                        <h2 id="dashName" style="font-size: 1.6rem; font-weight: 900; margin: 0; line-height: 1; letter-spacing: -0.02em;">--</h2>
+                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; margin-top: 0.5rem; opacity: 0.9;">
+                            <i data-lucide="map-pin" style="width: 12px; color: #38bdf8;"></i>
+                            <span id="dashPrincipalZone" style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">--</span>
                         </div>
                     </div>
-                    <div style="text-align: right; display: flex; align-items: center; gap: 0.75rem;">
-                        <div style="text-align: right;">
-                            <p style="font-size: 0.6rem; font-weight: 800; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Tournée</p>
-                            <h3 id="zoneName" style="font-size: 1rem; font-weight: 900; margin: 0;">--</h3>
-                        </div>
-                        <button onclick="import('./js/utils.js').then(m=>m.logout())" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.5rem; border-radius: 8px; cursor: pointer;">
-                            <i data-lucide="log-out" style="width: 16px;"></i>
-                        </button>
-                    </div>
+                </div>
+
+                <!-- RANGÉE TOURNÉE (S'affiche en bas du header) -->
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+                    <p style="font-size: 0.6rem; font-weight: 800; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Ma Tournée Actuelle</p>
+                    <h3 id="zoneName" style="font-size: 0.85rem; font-weight: 900; margin: 0; opacity: 0.95;">--</h3>
                 </div>
             </div>
 
@@ -231,28 +232,44 @@
 
         <!-- MODAL ANNONCE MAJ -->
         <div id="majOverlay" class="maj-overlay">
-            <div class="maj-card">
-                <h2><i data-lucide="sparkles"></i> Mise à Jour !</h2>
-                <p style="font-size: 0.8rem; color: var(--slate-600); margin-bottom: 1.5rem;">De nouvelles fonctionnalités sont disponibles pour booster votre efficacité.</p>
-                
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="zap" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Suivi Temps Réel</b><span>Marquez vos colis "Livré" ou "Retour" instantanément.</span></div>
-                </div>
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="database" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Synchronisation Cloud</b><span>Vos actions sont visibles par la direction en direct.</span></div>
-                </div>
-                <div class="maj-item">
-                    <div class="maj-icon"><i data-lucide="shield-check" style="width:16px;"></i></div>
-                    <div class="maj-text"><b>Archivage Sécurisé</b><span>Toutes vos livraisons sont désormais certifiées.</span></div>
+            <div class="maj-card" style="position:relative; overflow:hidden; max-height:90vh;">
+                <!-- VUE PRINCIPALE -->
+                <div id="majMainView" style="overflow-y:auto; max-height: calc(90vh - 4rem);">
+                    <h2><i data-lucide="sparkles"></i> Mise à Jour !</h2>
+                    <p style="font-size:0.78rem; color:var(--slate-500); margin-bottom:1.25rem; line-height:1.5;">Nouvelles fonctionnalités disponibles. Appuyez sur chaque ligne pour en savoir plus.</p>
+
+                    <div class="maj-item" onclick="openMajDetail('realtime')">
+                        <div class="maj-icon"><i data-lucide="zap" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Suivi Temps Réel</b><span>Marquez vos colis "Livré" ou "Retour" instantanément.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+                    <div class="maj-item" onclick="openMajDetail('sync')">
+                        <div class="maj-icon"><i data-lucide="database" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Synchronisation Cloud</b><span>Vos actions sont visibles par la direction en direct.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+                    <div class="maj-item" onclick="openMajDetail('archive')">
+                        <div class="maj-icon"><i data-lucide="shield-check" style="width:16px;"></i></div>
+                        <div class="maj-text"><b>Archivage Sécurisé</b><span>Toutes vos livraisons sont désormais certifiées.</span></div>
+                        <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                    </div>
+
+                    <div style="border-top:1px solid #eee; padding-top:1rem; margin-top:0.5rem; text-align:center;">
+                        <p style="font-size:0.65rem; font-weight:800; color:var(--slate-400); text-transform:uppercase;">Signé : CEO Mr Salomon</p>
+                    </div>
+                    <button class="maj-close" onclick="closeMajModal()">C'EST NOTÉ !</button>
                 </div>
 
-                <div style="border-top: 1px solid #eee; padding-top: 1rem; margin-top: 1rem; text-align: center;">
-                    <p style="font-size: 0.65rem; font-weight: 800; color: var(--slate-400); text-transform: uppercase;">Signé : CEO Mr Salomon</p>
+                <!-- PANNEAU DÉTAIL (slide-in) -->
+                <div id="majDetailPanel" class="maj-detail-panel">
+                    <div class="maj-detail-header">
+                        <button class="detail-back-btn" onclick="closeMajDetail()">
+                            <i data-lucide="arrow-left" style="width:15px;"></i>
+                        </button>
+                        <h3 id="majDetailTitle" style="font-size:0.9rem; font-weight:900; color:var(--brand-navy); margin:0;"></h3>
+                    </div>
+                    <div class="maj-detail-body" id="majDetailBody"></div>
                 </div>
-
-                <button class="maj-close" onclick="closeMajModal()">C'EST NOTÉ !</button>
             </div>
         </div>
     </main>
@@ -282,6 +299,76 @@
                 const modal = document.getElementById('majOverlay');
                 if (modal) modal.style.display = 'none';
                 localStorage.setItem('alc_last_maj_v2', 'true');
+            };
+
+            window.openMajDetail = (type) => {
+                const panel = document.getElementById('majDetailPanel');
+                const title = document.getElementById('majDetailTitle');
+                const body = document.getElementById('majDetailBody');
+                
+                const content = {
+                    realtime: {
+                        title: "Suivi Temps Réel",
+                        icon: "zap",
+                        hero: "Marquez vos colis en un clic dès la remise au client.",
+                        steps: [
+                            { t: "Cliquer sur 'Livré'", d: "Le montant est instantanément comptabilisé dans votre versement." },
+                            { t: "Cliquer sur 'Retour'", d: "Le gérant est alerté immédiatement du retour colis." },
+                            { t: "Annulation possible", d: "Une erreur ? Cliquez à nouveau sur le bouton pour annuler le statut." }
+                        ],
+                        tip: "<b>Astuce Pro :</b> Faites-le devant le client pour gagner du temps lors du point final avec le gérant."
+                    },
+                    sync: {
+                        title: "Synchronisation Cloud",
+                        icon: "database",
+                        hero: "Vos données sont sauvegardées même si vous perdez votre téléphone.",
+                        steps: [
+                            { t: "Sauvegarde auto", d: "Chaque action est envoyée vers nos serveurs sécurisés." },
+                            { t: "Mode Hors-ligne", d: "L'app garde vos actions en mémoire si le réseau coupe." },
+                            { t: "Visibilité Gérant", d: "Le gérant voit votre progression sans avoir à vous appeler." }
+                        ],
+                        tip: "<b>Note :</b> La barre de progression bleue sur l'écran du gérant avance à chaque colis marqué."
+                    },
+                    archive: {
+                        title: "Archivage Sécurisé",
+                        icon: "shield-check",
+                        hero: "Une preuve pour chaque livraison effectuée.",
+                        steps: [
+                            { t: "Historique certifié", d: "Toutes vos tournées passées sont archivées et consultables." },
+                            { t: "Protection", d: "En cas de litige, l'heure exacte de livraison est enregistrée." },
+                            { t: "Bilan Propre", d: "Votre CA du jour est calculé automatiquement sans erreur possible." }
+                        ],
+                        tip: "<b>Signé :</b> Ce système garantit la transparence totale entre vous et ALC."
+                    }
+                };
+
+                const data = content[type];
+                title.textContent = data.title;
+                body.innerHTML = `
+                    <div class="detail-hero">
+                        <div class="detail-hero-icon"><i data-lucide="${data.icon}" style="width:24px;"></i></div>
+                        <h3>${data.title}</h3>
+                        <p>${data.hero}</p>
+                    </div>
+                    <div class="detail-section-label">Comment ça marche ?</div>
+                    ${data.steps.map((s, i) => `
+                        <div class="detail-step">
+                            <div class="step-num">${i+1}</div>
+                            <div class="step-content">
+                                <h4>${s.t}</h4>
+                                <p>${s.d}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <div class="detail-tip">${data.tip}</div>
+                `;
+                
+                panel.classList.add('open');
+                lucide.createIcons();
+            };
+
+            window.closeMajDetail = () => {
+                document.getElementById('majDetailPanel').classList.remove('open');
             };
 
             // Check for MAJ Announcement

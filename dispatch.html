@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .fixed-top-area { background: var(--white); padding: 0.75rem 1rem; border-bottom: 2px solid var(--slate-100); z-index: 100; }
+        .fixed-top-area { background: var(--white); border-bottom: 2px solid var(--slate-100); z-index: 100; padding-top: 0.75rem; padding-bottom: 0.75rem; padding-right: 1rem; }
         .compact-info { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
         .capture-card { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 12px; padding: 0.75rem; }
         .camera-trigger { width: 100%; height: 90px; border: 2px dashed var(--slate-300); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; background: white; }
@@ -29,7 +29,7 @@
         }
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             gap: 0.75rem;
         }
         .grid-item {
@@ -91,40 +91,43 @@
         }
         #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
         #lightbox .close { position: absolute; top: 20px; right: 20px; color: white; cursor: pointer; }
-
         .floating-footer { background: var(--brand-navy); color: white; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
     <div class="fixed-top-area">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <h2 style="font-size: 1rem; font-weight: 900;">Dispatch</h2>
-            <div id="logoutBtn"><i data-lucide="log-out" style="width: 18px; color: var(--danger);"></i></div>
-        </div>
-        <div class="compact-info">
-            <select id="livreurSelect" style="font-size: 0.8rem; padding: 0.4rem;"><option value="">Livreur...</option></select>
-            <input type="text" id="zoneInput" placeholder="Zone..." style="font-size: 0.8rem; padding: 0.4rem;">
-        </div>
-        <div class="capture-card">
-            <div style="display: grid; grid-template-columns: 80px 1fr; gap: 0.75rem;">
-                <div class="camera-trigger" onclick="document.getElementById('itemPhotoInput').click()">
-                    <img id="itemPhotoPreview" class="hidden">
-                    <i data-lucide="camera" id="camIcon" style="width: 24px; color: var(--brand-navy);"></i>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <h2 style="font-size: 1.1rem; font-weight: 900; color: var(--brand-navy); margin: 0;">Dispatch</h2>
+                <div class="actu-badge" onclick="showMajModal()" style="background: #eff6ff; color: var(--brand-blue); border: 1px solid #dbeafe; padding: 0.3rem 0.6rem; border-radius: 8px; font-size: 0.6rem; font-weight: 800; display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+                    <i data-lucide="megaphone" style="width: 12px;"></i>
+                    ACTU
                 </div>
-                <div>
-                    <input type="number" id="itemMontant" placeholder="Montant F" style="height: 38px; font-weight: 800;">
-                    <div class="quick-amounts">
-                        <div class="q-btn" onclick="addVal(500)">+500</div>
-                        <div class="q-btn" onclick="addVal(1000)">+1k</div>
-                        <div class="q-btn" onclick="addVal(2000)">+2k</div>
-                        <div class="q-btn" onclick="addVal(5000)">+5k</div>
-                    </div>
+            </div>
+            <div id="logoutBtn" onclick="import('./js/utils.js').then(m=>m.logout())" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: #fef2f2; border-radius: 8px; cursor: pointer;">
+                <i data-lucide="log-out" style="width: 16px; color: var(--danger);"></i>
+            </div>
+        </div>
+        <div class="compact-info" style="gap: 0.5rem; margin-bottom: 1rem;">
+            <select id="livreurSelect" style="flex: 1.2;">
+                <option value="">Livreur...</option>
+            </select>
+            <input type="text" id="zoneInput" placeholder="Zone..." style="flex: 1;">
+        </div>
+        <div class="capture-card" style="padding: 1.25rem; border-radius: 16px; border: 1px solid var(--slate-100); box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display: grid; grid-template-columns: 85px 1fr; gap: 1rem;">
+                <div class="camera-trigger" onclick="document.getElementById('itemPhotoInput').click()" style="height: 85px; border-radius: 12px; background: var(--slate-50); border: 2px dashed var(--slate-200); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                    <img id="itemPhotoPreview" class="hidden" style="width: 100%; height: 100%; object-fit: cover;">
+                    <i data-lucide="camera" id="camIcon" style="width: 24px; color: var(--slate-400);"></i>
+                </div>
+                <div style="display: flex; flex-direction: column; height: 100%;">
+                    <input type="number" id="itemMontant" placeholder="Montant F" style="height: 100%; font-weight: 900; font-size: 1.5rem; border-radius: 10px; border: 1px solid var(--slate-200); padding: 0 0.75rem; color: var(--brand-navy); width: 100%;">
                 </div>
             </div>
             <input type="file" id="itemPhotoInput" accept="image/*" capture="environment" class="hidden">
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
-                <input type="text" id="itemDesc" placeholder="Note (optionnel)..." style="flex: 1; height: 38px; font-size: 0.8rem;">
-                <button type="button" id="addItemBtn" class="btn" style="width: 100px; height: 38px; background: var(--brand-navy); color: white; margin: 0; font-size: 0.7rem;">AJOUTER</button>
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <input type="text" id="itemDesc" placeholder="Note (optionnel)..." style="flex: 1; height: 42px; font-size: 0.75rem; border-radius: 10px; border: 1px solid var(--slate-200); padding: 0 0.75rem;">
+                <button type="button" id="addItemBtn" class="btn" style="width: 110px; height: 42px; background: var(--brand-navy); color: white; margin: 0; font-size: 0.75rem; font-weight: 900; border-radius: 10px;">AJOUTER</button>
             </div>
         </div>
     </div>
@@ -167,13 +170,141 @@
         <div class="overlay-card"><div class="success-icon"><i data-lucide="check" style="width: 32px;"></i></div><h3 style="font-weight: 900;">Bordereau Enregistré</h3><p style="font-size: 0.8rem; color: var(--slate-600);">Chargement terminé.</p></div>
     </div>
 
+    <!-- MODAL ANNONCE MAJ -->
+    <div id="majOverlay" class="maj-overlay">
+        <div class="maj-card" style="position:relative; overflow:hidden; max-height:90vh;">
+            <!-- VUE PRINCIPALE -->
+            <div id="majMainView" style="overflow-y:auto; max-height: calc(90vh - 4rem);">
+                <h2><i data-lucide="sparkles"></i> Mise à Jour !</h2>
+                <p style="font-size:0.78rem; color:var(--slate-500); margin-bottom:1.25rem; line-height:1.5;">Optimisation du flux de dispatch. Appuyez sur chaque ligne pour explorer.</p>
+
+                <div class="maj-item" onclick="openMajDetail('intelligent')">
+                    <div class="maj-icon"><i data-lucide="zap" style="width:16px;"></i></div>
+                    <div class="maj-text"><b>Dispatch Intelligent</b><span>Les livreurs voient vos ajouts instantanément sur leur mobile.</span></div>
+                    <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                </div>
+                <div class="maj-item" onclick="openMajDetail('sync')">
+                    <div class="maj-icon"><i data-lucide="refresh-cw" style="width:16px;"></i></div>
+                    <div class="maj-text"><b>Auto-Correction</b><span>Les montants et photos sont synchronisés en cas de modification.</span></div>
+                    <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                </div>
+                <div class="maj-item" onclick="openMajDetail('point')">
+                    <div class="maj-icon"><i data-lucide="check-check" style="width:16px;"></i></div>
+                    <div class="maj-text"><b>Validation Facilitée</b><span>Le processus de "Point" est simplifié grâce aux statuts temps réel.</span></div>
+                    <span class="maj-item-arrow"><i data-lucide="chevron-right" style="width:14px;"></i></span>
+                </div>
+
+                <div style="border-top:1px solid #eee; padding-top:1rem; margin-top:0.5rem; text-align:center;">
+                    <p style="font-size:0.65rem; font-weight:800; color:var(--slate-400); text-transform:uppercase;">Signé : CEO Mr Salomon</p>
+                </div>
+                <button class="maj-close" onclick="closeMajModal()">C'EST NOTÉ !</button>
+            </div>
+
+            <!-- PANNEAU DÉTAIL (slide-in) -->
+            <div id="majDetailPanel" class="maj-detail-panel">
+                <div class="maj-detail-header">
+                    <button class="detail-back-btn" onclick="closeMajDetail()">
+                        <i data-lucide="arrow-left" style="width:15px;"></i>
+                    </button>
+                    <h3 id="majDetailTitle" style="font-size:0.9rem; font-weight:900; color:var(--brand-navy); margin:0;"></h3>
+                </div>
+                <div class="maj-detail-body" id="majDetailBody"></div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/dispatch.js"></script>
     <script>
-        function addVal(v) {
-            const input = document.getElementById('itemMontant');
-            input.value = (parseInt(input.value) || 0) + v;
-            input.focus();
-        }
+        window.showMajModal = () => {
+            const modal = document.getElementById('majOverlay');
+            if (modal) modal.style.display = 'flex';
+        };
+
+        window.closeMajModal = () => {
+            const modal = document.getElementById('majOverlay');
+            if (modal) modal.style.display = 'none';
+            localStorage.setItem('alc_last_maj_gerant_v2', 'true');
+        };
+
+        window.openMajDetail = (type) => {
+            const panel = document.getElementById('majDetailPanel');
+            const title = document.getElementById('majDetailTitle');
+            const body = document.getElementById('majDetailBody');
+            
+            const content = {
+                intelligent: {
+                    title: "Dispatch Intelligent",
+                    icon: "zap",
+                    hero: "Envoyez des colis à vos livreurs sans les déranger.",
+                    steps: [
+                        { t: "Ajout instantané", d: "Dès que vous validez un colis, il apparaît sur le mobile du livreur." },
+                        { t: "Notification Livreur", d: "Le livreur reçoit une alerte visuelle sur son application." },
+                        { t: "Suivi visuel", d: "Vous voyez qui a déjà pris la route grâce au statut 'En Cours'." }
+                    ],
+                    tip: "<b>Conseil :</b> Utilisez les photos claires pour éviter toute confusion lors de la livraison."
+                },
+                sync: {
+                    title: "Auto-Correction",
+                    icon: "refresh-cw",
+                    hero: "Modifiez une erreur, elle se corrige partout.",
+                    steps: [
+                        { t: "Flexibilité", d: "Changez un montant ou une zone même après le départ du livreur." },
+                        { t: "Mise à jour Live", d: "L'application du livreur se rafraîchit automatiquement avec les nouvelles données." },
+                        { t: "Cohérence", d: "Plus d'écart entre votre registre et le versement attendu." }
+                    ],
+                    tip: "<b>Note :</b> Si le livreur est hors-ligne, la correction s'appliquera dès qu'il retrouvera du réseau."
+                },
+                point: {
+                    title: "Validation Facilitée",
+                    icon: "check-check",
+                    hero: "Gagnez 15 minutes par livreur lors du point final.",
+                    steps: [
+                        { t: "Pré-sélection", d: "Les retours marqués par les livreurs sont déjà isolés dans votre interface." },
+                        { t: "Calcul auto", d: "Le montant net à percevoir est calculé en déduisant les retours validés." },
+                        { t: "Archivage un clic", d: "Une fois le point validé, tout est archivé proprement pour la patronne." }
+                    ],
+                    tip: "<b>Info :</b> Ce système réduit les erreurs de calcul manuel de 95%."
+                }
+            };
+
+            const data = content[type];
+            title.textContent = data.title;
+            body.innerHTML = `
+                <div class="detail-hero">
+                    <div class="detail-hero-icon"><i data-lucide="${data.icon}" style="width:24px;"></i></div>
+                    <h3>${data.title}</h3>
+                    <p>${data.hero}</p>
+                </div>
+                <div class="detail-section-label">Avantages Gérant</div>
+                ${data.steps.map((s, i) => `
+                    <div class="detail-step">
+                        <div class="step-num">${i+1}</div>
+                        <div class="step-content">
+                            <h4>${s.t}</h4>
+                            <p>${s.d}</p>
+                        </div>
+                    </div>
+                `).join('')}
+                <div class="detail-tip">${data.tip}</div>
+            `;
+            
+            panel.classList.add('open');
+            lucide.createIcons();
+        };
+
+        window.closeMajDetail = () => {
+            document.getElementById('majDetailPanel').classList.remove('open');
+        };
+
+        // Check for MAJ Announcement on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const lastMajSeen = localStorage.getItem('alc_last_maj_gerant_v2');
+            if (!lastMajSeen) {
+                setTimeout(() => {
+                    if (typeof showMajModal === 'function') showMajModal();
+                }, 1500);
+            }
+        });
     </script>
     <script type="module" src="js/menu.js"></script>
 </body>
