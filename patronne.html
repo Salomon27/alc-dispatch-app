@@ -282,24 +282,28 @@
             checkAuth('patronne');
             lucide.createIcons();
 
+            window.showMajModal = () => {
+                const modal = document.getElementById('majOverlay');
+                if (modal) modal.style.display = 'flex';
+            };
+
+            window.closeMajModal = () => {
+                const modal = document.getElementById('majOverlay');
+                if (modal) modal.style.display = 'none';
+                localStorage.setItem('alc_last_maj_boss_v2', 'true');
+            };
+
             // Check for MAJ Announcement
             const lastMajSeen = localStorage.getItem('alc_last_maj_boss_v2');
             if (!lastMajSeen) {
-                setTimeout(showMajModal, 1500);
+                setTimeout(() => {
+                    if (typeof showMajModal === 'function') showMajModal();
+                }, 1500);
             }
             
             document.getElementById('logoutBtn').addEventListener('click', () => {
                 import('./js/utils.js').then(m => m.logout());
             });
-
-            window.showMajModal = () => {
-                document.getElementById('majOverlay').style.display = 'flex';
-            };
-
-            window.closeMajModal = () => {
-                document.getElementById('majOverlay').style.display = 'none';
-                localStorage.setItem('alc_last_maj_boss_v2', 'true');
-            };
 
             document.getElementById('periodFilter').addEventListener('change', loadBossStats);
             
@@ -318,10 +322,12 @@
             toast.style.boxShadow = type === 'danger' ? '0 10px 25px rgba(239, 68, 68, 0.4)' : '0 10px 25px rgba(16, 185, 129, 0.4)';
             
             toast.classList.add('show');
-            if (navigator.vibrate) {
-                if (type === 'danger') navigator.vibrate([200, 100, 200]);
-                else navigator.vibrate([100, 50, 100]);
-            }
+            try {
+                if (navigator.vibrate) {
+                    if (type === 'danger') navigator.vibrate([200, 100, 200]);
+                    else navigator.vibrate([100, 50, 100]);
+                }
+            } catch (e) {}
             
             setTimeout(() => {
                 toast.classList.remove('show');

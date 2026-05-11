@@ -162,7 +162,6 @@ export function injectNav(role) {
         `;
     }
     if (window.lucide) lucide.createIcons();
-    if (navigator.vibrate) navigator.vibrate(50);
 }
 
 // --- APP MAINTENANCE ---

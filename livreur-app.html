@@ -273,24 +273,28 @@
             
             lucide.createIcons();
 
+            window.showMajModal = () => {
+                const modal = document.getElementById('majOverlay');
+                if (modal) modal.style.display = 'flex';
+            };
+
+            window.closeMajModal = () => {
+                const modal = document.getElementById('majOverlay');
+                if (modal) modal.style.display = 'none';
+                localStorage.setItem('alc_last_maj_v2', 'true');
+            };
+
             // Check for MAJ Announcement
             const lastMajSeen = localStorage.getItem('alc_last_maj_v2');
             if (!lastMajSeen) {
-                setTimeout(showMajModal, 1500);
+                setTimeout(() => {
+                    if (typeof showMajModal === 'function') showMajModal();
+                }, 1500);
             }
             
             document.getElementById('userName').textContent = name;
             document.getElementById('dashName').textContent = name;
             document.getElementById('avatarTxt').textContent = name.charAt(0).toUpperCase();
-
-            window.showMajModal = () => {
-                document.getElementById('majOverlay').style.display = 'flex';
-            };
-
-            window.closeMajModal = () => {
-                document.getElementById('majOverlay').style.display = 'none';
-                localStorage.setItem('alc_last_maj_v2', 'true');
-            };
 
             // Stats livreur du jour
             loadLivreurStats(userId);
@@ -345,7 +349,9 @@
             const toast = document.getElementById('toast-container');
             document.getElementById('toast-msg').textContent = message;
             toast.classList.add('show');
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // Double vibration
+            try {
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
+            } catch (e) { console.log("Vibration blocked"); }
             
             setTimeout(() => {
                 toast.classList.remove('show');
@@ -528,7 +534,9 @@
             dBtn.querySelector('span').textContent = (finalStatus === 'livre') ? 'OK' : 'Livré';
             rBtn.querySelector('span').textContent = (finalStatus === 'retourne') ? 'OK' : 'Retour';
             
-            if (navigator.vibrate) navigator.vibrate(50);
+            try {
+                if (navigator.vibrate) navigator.vibrate(50);
+            } catch (e) {}
 
             // 3. Synchronisation Supabase (Asynchrone)
             try {
